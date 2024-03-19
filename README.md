@@ -1,0 +1,12 @@
+# Leslie255's Bytecode Virtual Machine
+
+I made this VM so I can submit my C coursework in the form of a bunch of bytecode and a `machine.h` file.
+It's not made as a "useful" bytecode VM hence some of the design choices.
+
+Check `manual.md` for design of the Bytecode VM.
+
+Currently work in progress, an assembler is also planned but it won't be written in C.
+
+## LICENSE
+
+This project is licensed under GPLv3.
