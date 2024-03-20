@@ -39,6 +39,10 @@ Pointers have sizes of 64 bits.
 
 Access of `vmem` with out-of-bound pointers results in halting of machine.
 
+Stack overflow/underflow is checked.
+
+PC overflow/underflow is checked.
+
 ## Addressing modes
 
 LBVM has three addressing modes for load/store instructions.

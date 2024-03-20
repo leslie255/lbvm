@@ -107,6 +107,12 @@ static inline u64 machine_fetch_data_qword(Machine *machine) {
   return value;
 }
 
+static inline bool machine_jump_offset(Machine *machine, u16 offset) {
+  MACHINE_CHECK_PC_OVERFLOW(machine, offset);
+  machine->pc += offset;
+  return true;
+}
+
 static inline size_t oplen_to_size(const u8 oplen) {
   switch (oplen) {
   case OPLEN_8:
@@ -305,11 +311,12 @@ static inline bool machine_next(Machine *machine) {
     bool cond = (u64)(cond_flag & 0b011111111) & machine->reg_status.numeric;
     if (rev)
       cond = !cond;
-    if (cond)
-      machine->pc += GET_JUMP_OFFSET(inst);
+    if (cond) {
+      TRY_NULL(machine_jump_offset(machine, GET_JUMP_OFFSET(inst)));
+    }
   } break;
   case OPCODE_J: {
-    machine->pc += GET_JUMP_OFFSET(inst);
+    TRY_NULL(machine_jump_offset(machine, GET_JUMP_OFFSET(inst)));
   } break;
   case OPCODE_ADD: {
     u64 *dest = machine_reg(machine, GET_OPERAND0(inst));
@@ -922,7 +929,7 @@ static inline bool machine_next(Machine *machine) {
     }
     memcpy(&machine->vmem[machine->reg_sp], &machine->pc, 2);
     machine->reg_sp += 2;
-    machine->pc += GET_JUMP_OFFSET(inst);
+    TRY_NULL(machine_jump_offset(machine, GET_JUMP_OFFSET(inst)));
   } break;
   case OPCODE_CCALL: {
     u8 cond_flag = GET_FLAGS(inst);
@@ -937,7 +944,7 @@ static inline bool machine_next(Machine *machine) {
       }
       memcpy(&machine->vmem[machine->reg_sp], &machine->pc, 2);
       machine->reg_sp += 2;
-      machine->pc += GET_JUMP_OFFSET(inst);
+      TRY_NULL(machine_jump_offset(machine, GET_JUMP_OFFSET(inst)));
     }
   } break;
   case OPCODE_RET: {

@@ -16,6 +16,15 @@ void write_small_inst(u8 **writer, u8 opcode, u8 operand0, u8 operand1, u8 opera
   *writer += 1;
 }
 
+void write_jump_inst(u8 **writer, u8 opcode, u16 offset, u8 flags) {
+  **writer = opcode;
+  *writer += 1;
+  memcpy(*writer, &offset, 2);
+  *writer += 2;
+  **writer = flags;
+  *writer += 1;
+}
+
 void write_big_inst(u8 **writer, u8 opcode, u8 operand0, u8 operand1, u8 operand2, u8 operand3, u8 flags, u64 data) {
   const u8 operand0_1 = (u8)(operand0 | (operand1 << 4));
   const u8 operand2_3 = (u8)(operand2 | (operand3 << 4));
@@ -68,11 +77,9 @@ i32 main() {
   u8 memory[VMEM_SIZE] = {0};
 
   u8 *writer = &memory[PC_INIT];
-  write_big_inst(&writer, OPCODE_LOAD_IMM + OPLEN_8, REG_1, 0, 0, 0, 0, 2);
-  write_big_inst(&writer, OPCODE_LOAD_IMM + OPLEN_8, REG_2, 0, 0, 0, 0, 4);
-  write_big_inst(&writer, OPCODE_LOAD_IMM + OPLEN_8, REG_3, 0, 0, 0, 0, 10);
-  write_small_inst(&writer, OPCODE_BREAKPOINT, 0, 0, 0, 0, 0);
-  write_small_inst(&writer, OPCODE_MULADD + OPLEN_8, REG_0, REG_1, REG_2, REG_3, 0);    // r0 = 2 * 4 + 10
+  write_jump_inst(&writer, OPCODE_J, 12, 0);
+  write_big_inst(&writer, OPCODE_LOAD_IMM + OPLEN_8, REG_0, 0, 0, 0, 0, 0xFF);
+  write_big_inst(&writer, OPCODE_LOAD_IMM + OPLEN_8, REG_1, 0, 0, 0, 0, 0xFF);
   write_small_inst(&writer, OPCODE_BREAKPOINT, 0, 0, 0, 0, 0);
 
   Machine machine = {0};
