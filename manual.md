@@ -71,7 +71,9 @@ Oplen is the length associated with an operation:
 | word  | 2    | `0b10`              |
 | byte  | 1    | `0b11`              |
 
-Oplen is irrelevant for some operations, for those oplen must be `00`.
+Oplen is irrelevant for some operations, for those any oplen is allowed.
+
+Floating point arithmetics only allow `qword` and `dword`, using them with `word` or `byte` halts machine.
 
 ## Status register and status flags
 
@@ -125,7 +127,7 @@ For this reason `store_dir` and `load_dir` is a small instruction while the othe
 ## Instruction set
 
 | Name        | Oplen relevant?  | Status affected | Encoding Fomat | Encoding (without first byte)     |
-|-------------|----------------- |-----------------|----------------|-----------------------------------|
+|-------------|------------------|-----------------|----------------|-----------------------------------|
 | brk         | No               | -               | Small          | `[-][-][-][-][-]`                 |
 | cbrk        | No               | -               | Small          | `[-][-][-][-][cond]`              |
 | nop         | No               | -               | Small          | `[-][-][-][-][-]`                 |
@@ -166,7 +168,7 @@ For this reason `store_dir` and `load_dir` is a small instruction while the othe
 | push        | Yes              | -               | Small          | `[src][-][-][-][-]`               |
 | pop         | Yes              | NZ              | Small          | `[dest][-][-][-][-]`              |
 | libc_call   | No               | -               | Small          | `[libc_callcode][-][-][-][-]`     |
-| native_call | Big              | -               | Small          | `[-][-][-][-][-][addr]`           |
+| native_call | No               | -               | Big            | TODO                              |
 | breakpoint  | No               | -               | Small          | `[-][-][-][-][-]`                 |
 
 Note that because all registers are callee-saved, value of status register might change after `call`, `ccall`, `libc_call`, `native_call`, even though the instruction itself does not touch the status register.
