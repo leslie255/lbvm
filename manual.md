@@ -1,6 +1,6 @@
 # LBVM Manual
 
-Note that LBVM is not designed with memory security or safety in mind, which is the reason for some of the design choices.
+Note that LBVM is not designed with memory security or safety in mind, hence some of the design choices.
 
 LBVM is little endian.
 
@@ -56,14 +56,20 @@ byte3:    [flags:8]
 byte4~11: [data:64]
 ```
 
-`oplen` is the length of operations:
+## Opcode & oplen
 
-| Length    | Encoding |
-|-----------|----------|
-| qword (8) | `0`      |
-| dword (4) | `1`      |
-| word (2)  | `2`      |
-| byte (1)  | `3`      |
+The first byte of instructions consists of a 6 bit opcode and a 2 bit oplen.
+
+Oplen is the length associated with an operation:
+
+| Name  | Size | Encoding            |
+|-------|------|---------------------|
+| qword | 8    | `0b00`              |
+| dword | 4    | `0b01`              |
+| word  | 2    | `0b10`              |
+| byte  | 1    | `0b11`              |
+
+Oplen is irrelevant for some operations, for those oplen must be `00`.
 
 ## Status register and status flags
 
@@ -113,21 +119,6 @@ LBVM has three addressing modes for load/store instructions.
 Note that for `store` instructions, the addressing mode refers to the address of the destination address, unlike `load`, for which the addressing mode determines the location of the source value.
 
 For this reason `store_dir` and `load_dir` is a small instruction while the other load/store instructions are big instructions.
-
-## Opcode & oplen
-
-The opcode consist of a 6 bit opcode and a 2 bit oplen.
-
-Oplen is the length associated with this operation:
-
-| Name  | Size | Encoding            |
-|-------|------|---------------------|
-| qword | 8    | `0b00`              |
-| dword | 4    | `0b01`              |
-| word  | 2    | `0b10`              |
-| byte  | 1    | `0b11`              |
-
-Oplen is irrelevant for some operations.
 
 ## Instruction set
 
