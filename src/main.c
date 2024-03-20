@@ -33,7 +33,26 @@ void write_big_inst(u8 **writer, u8 opcode, u8 operand0, u8 operand1, u8 operand
 
 void breakpoint_callback(Machine *machine) {
   printf("--- BREAKPOINT ---\n");
-  machine_print_regs(machine);
+  printf("pc:\t0x%04X\n", machine->pc);
+  printf("r0:\t0x%016llX (%llu)\n", machine->reg_0, machine->reg_0);
+  printf("r1:\t0x%016llX (%llu)\n", machine->reg_1, machine->reg_1);
+  printf("r2:\t0x%016llX (%llu)\n", machine->reg_2, machine->reg_2);
+  printf("r3:\t0x%016llX (%llu)\n", machine->reg_3, machine->reg_3);
+  printf("r4:\t0x%016llX (%llu)\n", machine->reg_4, machine->reg_4);
+  printf("r5:\t0x%016llX (%llu)\n", machine->reg_5, machine->reg_5);
+  printf("r6:\t0x%016llX (%llu)\n", machine->reg_6, machine->reg_6);
+  printf("r7:\t0x%016llX (%llu)\n", machine->reg_7, machine->reg_7);
+  printf("r8:\t0x%016llX (%llu)\n", machine->reg_8, machine->reg_8);
+  printf("r9:\t0x%016llX (%llu)\n", machine->reg_9, machine->reg_9);
+  printf("r10:\t0x%016llX (%llu)\n", machine->reg_10, machine->reg_10);
+  printf("r11:\t0x%016llX (%llu)\n", machine->reg_11, machine->reg_11);
+  printf("r12:\t0x%016llX (%llu)\n", machine->reg_12, machine->reg_12);
+  printf("r13:\t0x%016llX (%llu)\n", machine->reg_13, machine->reg_13);
+  printf("status:\t%c %c %c %c %c %c %c\n", machine->reg_status.flag_n ? 'N' : 'n',
+         machine->reg_status.flag_z ? 'Z' : 'z', machine->reg_status.flag_c ? 'C' : 'c',
+         machine->reg_status.flag_v ? 'V' : 'v', machine->reg_status.flag_e ? 'E' : 'e',
+         machine->reg_status.flag_g ? 'G' : 'g', machine->reg_status.flag_l ? 'L' : 'l');
+  printf("sp:\t0x%016llX (%llu)\n", machine->reg_sp, machine->reg_sp);
   for (size_t i = 0; i < 8; i++) {
     for (size_t j = 0; j < 8; j++) {
       printf("%02X ", machine->vmem[i * 8 + j]);
@@ -49,20 +68,11 @@ i32 main() {
   u8 memory[VMEM_SIZE] = {0};
 
   u8 *writer = &memory[PC_INIT];
-  write_big_inst(&writer, OPCODE_LOAD_IMM + OPLEN_8, REG_1, 0, 0, 0, 0, 0x0123456789ABCDEF);
-  write_big_inst(&writer, OPCODE_LOAD_IMM + OPLEN_8, REG_2, 0, 0, 0, 0, 0xF0F0F0F0F0F0F0F0);
-  write_big_inst(&writer, OPCODE_LOAD_IMM + OPLEN_8, REG_3, 0, 0, 0, 0, 11);
-  write_big_inst(&writer, OPCODE_LOAD_IMM + OPLEN_8, REG_4, 0, 0, 0, 0, 10);
+  write_big_inst(&writer, OPCODE_LOAD_IMM + OPLEN_8, REG_1, 0, 0, 0, 0, 2);
+  write_big_inst(&writer, OPCODE_LOAD_IMM + OPLEN_8, REG_2, 0, 0, 0, 0, 4);
+  write_big_inst(&writer, OPCODE_LOAD_IMM + OPLEN_8, REG_3, 0, 0, 0, 0, 10);
   write_small_inst(&writer, OPCODE_BREAKPOINT, 0, 0, 0, 0, 0);
-  write_small_inst(&writer, OPCODE_CMP + OPLEN_8, REG_3, REG_4, 0, 0, 0);
-  write_small_inst(&writer, OPCODE_BREAKPOINT, 0, 0, 0, 0, 0);
-  write_small_inst(&writer, OPCODE_CSEL + OPLEN_8, REG_0, REG_1, REG_2, 0, CONDFLAG_G);
-  write_small_inst(&writer, OPCODE_BREAKPOINT, 0, 0, 0, 0, 0);
-  write_small_inst(&writer, OPCODE_PUSH + OPLEN_8, REG_0, 0, 0, 0, 0);
-  write_small_inst(&writer, OPCODE_BREAKPOINT, 0, 0, 0, 0, 0);
-  write_small_inst(&writer, OPCODE_POP + OPLEN_4, REG_12, 0, 0, 0, 0);
-  write_small_inst(&writer, OPCODE_BREAKPOINT, 0, 0, 0, 0, 0);
-  write_small_inst(&writer, OPCODE_POP + OPLEN_4, REG_13, 0, 0, 0, 0);
+  write_small_inst(&writer, OPCODE_MULADD + OPLEN_8, REG_0, REG_1, REG_2, REG_3, 0);    // r0 = 2 * 4 + 10
   write_small_inst(&writer, OPCODE_BREAKPOINT, 0, 0, 0, 0, 0);
 
   Machine machine = {0};

@@ -53,29 +53,6 @@ struct machine {
   breakpoint_callback_t breakpoint_callback;
 };
 
-static inline void machine_print_regs(const Machine *machine) {
-  printf("pc:\t0x%04X\n", machine->pc);
-  printf("r0:\t0x%016llX (%llu)\n", machine->reg_0, machine->reg_0);
-  printf("r1:\t0x%016llX (%llu)\n", machine->reg_1, machine->reg_1);
-  printf("r2:\t0x%016llX (%llu)\n", machine->reg_2, machine->reg_2);
-  printf("r3:\t0x%016llX (%llu)\n", machine->reg_3, machine->reg_3);
-  printf("r4:\t0x%016llX (%llu)\n", machine->reg_4, machine->reg_4);
-  printf("r5:\t0x%016llX (%llu)\n", machine->reg_5, machine->reg_5);
-  printf("r6:\t0x%016llX (%llu)\n", machine->reg_6, machine->reg_6);
-  printf("r7:\t0x%016llX (%llu)\n", machine->reg_7, machine->reg_7);
-  printf("r8:\t0x%016llX (%llu)\n", machine->reg_8, machine->reg_8);
-  printf("r9:\t0x%016llX (%llu)\n", machine->reg_9, machine->reg_9);
-  printf("r10:\t0x%016llX (%llu)\n", machine->reg_10, machine->reg_10);
-  printf("r11:\t0x%016llX (%llu)\n", machine->reg_11, machine->reg_11);
-  printf("r12:\t0x%016llX (%llu)\n", machine->reg_12, machine->reg_12);
-  printf("r13:\t0x%016llX (%llu)\n", machine->reg_13, machine->reg_13);
-  printf("status:\t%c %c %c %c %c %c %c\n", machine->reg_status.flag_n ? 'N' : 'n',
-         machine->reg_status.flag_z ? 'Z' : 'z', machine->reg_status.flag_c ? 'C' : 'c',
-         machine->reg_status.flag_v ? 'V' : 'v', machine->reg_status.flag_e ? 'E' : 'e',
-         machine->reg_status.flag_g ? 'G' : 'g', machine->reg_status.flag_l ? 'L' : 'l');
-  printf("sp:\t0x%016llX (%llu)\n", machine->reg_sp, machine->reg_sp);
-}
-
 static inline u64 *machine_reg(Machine *machine, u8 reg_code) {
   switch (reg_code) {
   case REG_0:
@@ -115,11 +92,18 @@ static inline u64 *machine_reg(Machine *machine, u8 reg_code) {
   }
 }
 
+#define MACHINE_CHECK_PC_OVERFLOW(MACHINE, LEN)                                                                        \
+  if (MACHINE->pc + LEN > VMEM_SIZE) {                                                                                 \
+    fprintf(stderr, "PC overflowed\n");                                                                                \
+    return false;                                                                                                      \
+  }
+
 /// Fetch the 8 data bytes on pc for big instructions.
+/// Make sure to do `MACHINE_CHECK_PC_OVERFLOW(machine, 8)` before this!
 static inline u64 machine_fetch_data_qword(Machine *machine) {
   u64 value;
-  memcpy(&value, &machine->vmem[machine->pc], sizeof(u64));
-  machine->pc += sizeof(u64);
+  memcpy(&value, &machine->vmem[machine->pc], 8);
+  machine->pc += 8;
   return value;
 }
 
@@ -143,8 +127,8 @@ static inline void *solve_addr(Machine *machine, u8 vmem_flag, u64 addr) {
     return (void *)addr;
   } else {
     if (addr > VMEM_SIZE) {
-      fprintf(stderr, "Out of bound stack access @ 0x%04X\n", machine->pc - 12);
-      exit(1);
+      fprintf(stderr, "Out of bound stack access @ 0x%04X\n", machine->pc - 4);
+      return NULL;
     }
     return &machine->vmem[addr];
   }
@@ -161,9 +145,8 @@ static inline u64 mask_val(u64 value, u8 oplen) {
   case OPLEN_1:
     return value & 0x00000000000000FF;
   default:
-    PANIC();
+    PANIC_PRINT("Called `%s` with illegal oplen %u\n", __FUNCTION__, oplen);
   }
-  __builtin_unreachable();
 }
 
 static inline u64 mask_val_and_set_flag_n(Machine *machine, u64 value, u8 oplen) {
@@ -181,9 +164,8 @@ static inline u64 mask_val_and_set_flag_n(Machine *machine, u64 value, u8 oplen)
     machine->reg_status.flag_n = (i8)value < 0;
     return value & 0x00000000000000FF;
   default:
-    PANIC();
+    PANIC_PRINT("Called `%s` with illegal oplen %u\n", __FUNCTION__, oplen);
   }
-  __builtin_unreachable();
 }
 
 #define GET_OPERAND0(INST) ((INST)[1] & 0b00001111)
@@ -193,11 +175,9 @@ static inline u64 mask_val_and_set_flag_n(Machine *machine, u64 value, u8 oplen)
 #define GET_FLAGS(INST) ((INST)[3])
 #define GET_JUMP_OFFSET(INST) (((u16)((INST)[1])) | (u16)((INST)[2] << 8))
 
-#define IS_NEGATIVE(X)                                                                                                 \
-  _Generic((X), u8 : (i8)(X) < 0, u16 : (i16)(X) < 0, u32 : (i32)(X) < 0, u64 : (i64)(X) < 0, usize : (isize)(X) < 0)
-
 //// Returns `true` if should continue, `false` if should stop.
 static inline bool machine_next(Machine *machine) {
+  MACHINE_CHECK_PC_OVERFLOW(machine, 4);
   const u8 inst[4] = {
       machine->vmem[machine->pc + 0],
       machine->vmem[machine->pc + 1],
@@ -227,6 +207,7 @@ static inline bool machine_next(Machine *machine) {
   case OPCODE_LOAD_IMM: {
     machine->reg_status.numeric = 0;
     u64 *dest_reg = machine_reg(machine, GET_OPERAND0(inst));
+    MACHINE_CHECK_PC_OVERFLOW(machine, 8);
     u64 imm = machine_fetch_data_qword(machine);
     u64 imm_masked = mask_val_and_set_flag_n(machine, imm, oplen);
     machine->reg_status.flag_z = imm_masked == 0;
@@ -235,8 +216,10 @@ static inline bool machine_next(Machine *machine) {
   case OPCODE_LOAD_DIR: {
     machine->reg_status.numeric = 0;
     u64 *dest_reg = machine_reg(machine, GET_OPERAND0(inst));
+    MACHINE_CHECK_PC_OVERFLOW(machine, 8);
     u64 addr = machine_fetch_data_qword(machine);
     void *src = solve_addr(machine, GET_FLAGS(inst) & 0b00000001, addr);
+    TRY_NULL(src);
     *dest_reg = 0;
     memcpy(dest_reg, src, oplen_to_size(oplen)); // use memcpy because address may be unaligned
     mask_val_and_set_flag_n(machine, *dest_reg, oplen);
@@ -244,10 +227,12 @@ static inline bool machine_next(Machine *machine) {
   } break;
   case OPCODE_LOAD_IND: {
     machine->reg_status.numeric = 0;
+    MACHINE_CHECK_PC_OVERFLOW(machine, 8);
     u64 src_addr_offset = machine_fetch_data_qword(machine);
     u64 src_addr_base = *machine_reg(machine, GET_OPERAND1(inst));
     u64 src_addr = src_addr_base + src_addr_offset;
     void *src = solve_addr(machine, GET_FLAGS(inst) & 0b00000001, src_addr);
+    TRY_NULL(src);
     u64 *dest_reg = machine_reg(machine, GET_OPERAND0(inst));
     *dest_reg = 0;
     memcpy(dest_reg, src, oplen_to_size(oplen)); // use memcpy because address may be unaligned
@@ -256,8 +241,10 @@ static inline bool machine_next(Machine *machine) {
   } break;
   case OPCODE_STORE_IMM: {
     machine->reg_status.numeric = 0;
+    MACHINE_CHECK_PC_OVERFLOW(machine, 8);
     u64 dest_addr = machine_fetch_data_qword(machine);
     void *dest = solve_addr(machine, GET_FLAGS(inst) & 0b00000001, dest_addr);
+    TRY_NULL(dest);
     u64 src = mask_val_and_set_flag_n(machine, *machine_reg(machine, GET_OPERAND0(inst)), oplen);
     memcpy(dest, &src, oplen_to_size(oplen));
     mask_val_and_set_flag_n(machine, src, oplen);
@@ -267,6 +254,7 @@ static inline bool machine_next(Machine *machine) {
     machine->reg_status.numeric = 0;
     u64 dest_addr = *machine_reg(machine, GET_OPERAND1(inst));
     void *dest = solve_addr(machine, GET_FLAGS(inst) & 0b00000001, dest_addr);
+    TRY_NULL(dest);
     u64 src = mask_val_and_set_flag_n(machine, *machine_reg(machine, GET_OPERAND0(inst)), oplen);
     memcpy(dest, &src, oplen_to_size(oplen));
     mask_val_and_set_flag_n(machine, src, oplen);
@@ -275,9 +263,11 @@ static inline bool machine_next(Machine *machine) {
   case OPCODE_STORE_IND: {
     machine->reg_status.numeric = 0;
     u64 dest_addr_base = *machine_reg(machine, GET_OPERAND0(inst));
+    MACHINE_CHECK_PC_OVERFLOW(machine, 8);
     u64 dest_addr_offset = machine_fetch_data_qword(machine);
     u64 dest_addr = dest_addr_base + dest_addr_offset;
     void *dest = solve_addr(machine, GET_FLAGS(inst) & 0b00000001, dest_addr);
+    TRY_NULL(dest);
     u64 src = mask_val_and_set_flag_n(machine, *machine_reg(machine, GET_OPERAND0(inst)), oplen);
     memcpy(dest, &src, oplen_to_size(oplen));
     mask_val_and_set_flag_n(machine, src, oplen);
@@ -326,30 +316,30 @@ static inline bool machine_next(Machine *machine) {
     u64 lhs = *machine_reg(machine, GET_OPERAND1(inst));
     u64 rhs = *machine_reg(machine, GET_OPERAND2(inst));
     u64 result;
-#define ADD_WITH_TY(TY)                                                                                                \
+#define ADD_WITH_TY(TY, SIGNED_TY)                                                                                     \
   {                                                                                                                    \
     TY LHS_ = (TY)lhs;                                                                                                 \
     TY RHS_ = (TY)rhs;                                                                                                 \
     TY RESULT_ = LHS_ + RHS_;                                                                                          \
     machine->reg_status.numeric = 0;                                                                                   \
     machine->reg_status.flag_z = RESULT_ == 0;                                                                         \
-    machine->reg_status.flag_n = IS_NEGATIVE(RESULT_);                                                                 \
+    machine->reg_status.flag_n = (SIGNED_TY)(RESULT_) < 0;                                                             \
     machine->reg_status.flag_c = (RESULT_ < LHS_) | (RESULT_ < RHS_);                                                  \
     machine->reg_status.flag_v = (RESULT_ < LHS_) | (RESULT_ < RHS_);                                                  \
     result = RESULT_;                                                                                                  \
   };
     switch (oplen) {
     case OPLEN_8: {
-      ADD_WITH_TY(u64);
+      ADD_WITH_TY(u64, i64);
     } break;
     case OPLEN_4: {
-      ADD_WITH_TY(u32);
+      ADD_WITH_TY(u32, i64);
     } break;
     case OPLEN_2: {
-      ADD_WITH_TY(u16);
+      ADD_WITH_TY(u16, i64);
     } break;
     case OPLEN_1: {
-      ADD_WITH_TY(u8);
+      ADD_WITH_TY(u8, i64);
     } break;
     default:
       PANIC();
@@ -361,30 +351,30 @@ static inline bool machine_next(Machine *machine) {
     u64 lhs = *machine_reg(machine, GET_OPERAND1(inst));
     u64 rhs = *machine_reg(machine, GET_OPERAND2(inst));
     u64 result;
-#define SUB_WITH_TY(TY)                                                                                                \
+#define SUB_WITH_TY(TY, SIGNED_TY)                                                                                     \
   {                                                                                                                    \
     TY LHS_ = (TY)lhs;                                                                                                 \
     TY RHS_ = (TY)rhs;                                                                                                 \
     TY RESULT_ = LHS_ - RHS_;                                                                                          \
     machine->reg_status.numeric = 0;                                                                                   \
     machine->reg_status.flag_z = RESULT_ == 0;                                                                         \
-    machine->reg_status.flag_n = IS_NEGATIVE(RESULT_);                                                                 \
+    machine->reg_status.flag_n = (SIGNED_TY)(RESULT_) < 0;                                                             \
     machine->reg_status.flag_c = (RESULT_ < LHS_) | (RESULT_ < RHS_); /*carry flag is reversed for subtraction*/       \
     machine->reg_status.flag_v = (RESULT_ > LHS_) | (RESULT_ > RHS_);                                                  \
     result = RESULT_;                                                                                                  \
   };
     switch (oplen) {
     case OPLEN_8: {
-      SUB_WITH_TY(u64);
+      SUB_WITH_TY(u64, i64);
     } break;
     case OPLEN_4: {
-      SUB_WITH_TY(u32);
+      SUB_WITH_TY(u32, i32);
     } break;
     case OPLEN_2: {
-      SUB_WITH_TY(u16);
+      SUB_WITH_TY(u16, i16);
     } break;
     case OPLEN_1: {
-      SUB_WITH_TY(u8);
+      SUB_WITH_TY(u8, i8);
     } break;
     default:
       PANIC();
@@ -396,29 +386,29 @@ static inline bool machine_next(Machine *machine) {
     u64 lhs = *machine_reg(machine, GET_OPERAND1(inst));
     u64 rhs = *machine_reg(machine, GET_OPERAND2(inst));
     u64 result;
-#define MUL_WITH_TY(TY)                                                                                                \
+#define MUL_WITH_TY(TY, SIGNED_TY)                                                                                     \
   {                                                                                                                    \
     TY LHS_ = (TY)lhs;                                                                                                 \
     TY RHS_ = (TY)rhs;                                                                                                 \
     TY RESULT_ = LHS_ * RHS_;                                                                                          \
     machine->reg_status.numeric = 0;                                                                                   \
     machine->reg_status.flag_z = RESULT_ == 0;                                                                         \
-    machine->reg_status.flag_n = IS_NEGATIVE(RESULT_);                                                                 \
+    machine->reg_status.flag_n = (SIGNED_TY)(RESULT_) < 0;                                                             \
     machine->reg_status.flag_v = (RESULT_ < LHS_) | (RESULT_ < RHS_);                                                  \
     result = RESULT_;                                                                                                  \
   };
     switch (oplen) {
     case OPLEN_8: {
-      MUL_WITH_TY(u64);
+      MUL_WITH_TY(u64, i64);
     } break;
     case OPLEN_4: {
-      MUL_WITH_TY(u32);
+      MUL_WITH_TY(u32, i32);
     } break;
     case OPLEN_2: {
-      MUL_WITH_TY(u16);
+      MUL_WITH_TY(u16, i16);
     } break;
     case OPLEN_1: {
-      MUL_WITH_TY(u8);
+      MUL_WITH_TY(u8, i8);
     } break;
     default:
       PANIC();
@@ -430,7 +420,7 @@ static inline bool machine_next(Machine *machine) {
     u64 lhs = *machine_reg(machine, GET_OPERAND1(inst));
     u64 rhs = *machine_reg(machine, GET_OPERAND2(inst));
     u64 result;
-#define DIV_WITH_TY(TY)                                                                                                \
+#define DIV_WITH_TY(TY, SIGNED_TY)                                                                                     \
   {                                                                                                                    \
     TY LHS_ = (TY)lhs;                                                                                                 \
     TY RHS_ = (TY)rhs;                                                                                                 \
@@ -440,21 +430,57 @@ static inline bool machine_next(Machine *machine) {
     return false;                                                                                                      \
     machine->reg_status.numeric = 0;                                                                                   \
     machine->reg_status.flag_z = RESULT_ == 0;                                                                         \
-    machine->reg_status.flag_n = IS_NEGATIVE(RESULT_);                                                                 \
+    machine->reg_status.flag_n = (SIGNED_TY)(RESULT_) < 0;                                                             \
     result = RESULT_;                                                                                                  \
   };
     switch (oplen) {
     case OPLEN_8: {
-      DIV_WITH_TY(u64);
+      DIV_WITH_TY(u64, i64);
     } break;
     case OPLEN_4: {
-      DIV_WITH_TY(u32);
+      DIV_WITH_TY(u32, i32);
     } break;
     case OPLEN_2: {
-      DIV_WITH_TY(u16);
+      DIV_WITH_TY(u16, i16);
     } break;
     case OPLEN_1: {
-      DIV_WITH_TY(u8);
+      DIV_WITH_TY(u8, i8);
+    } break;
+    default:
+      PANIC();
+    }
+    *dest = result;
+  } break;
+  case OPCODE_MOD: {
+    u64 *dest = machine_reg(machine, GET_OPERAND0(inst));
+    u64 lhs = *machine_reg(machine, GET_OPERAND1(inst));
+    u64 rhs = *machine_reg(machine, GET_OPERAND2(inst));
+    u64 result;
+#define MOD_WITH_TY(TY, SIGNED_TY)                                                                                     \
+  {                                                                                                                    \
+    TY LHS_ = (TY)lhs;                                                                                                 \
+    TY RHS_ = (TY)rhs;                                                                                                 \
+    TY RESULT_ = LHS_ % RHS_;                                                                                          \
+    if (RHS_ == 0)                                                                                                     \
+      fprintf(stderr, "Mod by zero @ 0x%04X\n", machine->pc - 4);                                                      \
+    return false;                                                                                                      \
+    machine->reg_status.numeric = 0;                                                                                   \
+    machine->reg_status.flag_z = RESULT_ == 0;                                                                         \
+    machine->reg_status.flag_n = (SIGNED_TY)(RESULT_) < 0;                                                             \
+    result = RESULT_;                                                                                                  \
+  };
+    switch (oplen) {
+    case OPLEN_8: {
+      MOD_WITH_TY(u64, i64);
+    } break;
+    case OPLEN_4: {
+      MOD_WITH_TY(u32, i64);
+    } break;
+    case OPLEN_2: {
+      MOD_WITH_TY(u16, i64);
+    } break;
+    case OPLEN_1: {
+      MOD_WITH_TY(u8, i64);
     } break;
     default:
       PANIC();
@@ -486,10 +512,10 @@ static inline bool machine_next(Machine *machine) {
       IADD_WITH_TY(i32);
     } break;
     case OPLEN_2: {
-      IADD_WITH_TY(u16);
+      IADD_WITH_TY(i16);
     } break;
     case OPLEN_1: {
-      IADD_WITH_TY(u8);
+      IADD_WITH_TY(i8);
     } break;
     default:
       PANIC();
@@ -574,11 +600,11 @@ static inline bool machine_next(Machine *machine) {
   {                                                                                                                    \
     TY LHS_ = (TY)lhs;                                                                                                 \
     TY RHS_ = (TY)rhs;                                                                                                 \
+    TY RESULT_ = LHS_ / RHS_;                                                                                          \
     if (RHS_ == 0) {                                                                                                   \
       fprintf(stderr, "Division by zero @ %04X\n", machine->pc - 4);                                                   \
       return false;                                                                                                    \
     }                                                                                                                  \
-    TY RESULT_ = LHS_ / RHS_;                                                                                          \
     machine->reg_status.numeric = 0;                                                                                   \
     machine->reg_status.flag_z = RESULT_ == 0;                                                                         \
     machine->reg_status.flag_n = RESULT_ < 0;                                                                          \
@@ -602,6 +628,43 @@ static inline bool machine_next(Machine *machine) {
     }
     *dest = result;
   } break;
+  case OPCODE_IMOD: {
+    u64 *dest = machine_reg(machine, GET_OPERAND0(inst));
+    u64 lhs = *machine_reg(machine, GET_OPERAND1(inst));
+    u64 rhs = *machine_reg(machine, GET_OPERAND2(inst));
+    u64 result;
+#define IMOD_WITH_TY(TY)                                                                                               \
+  {                                                                                                                    \
+    TY LHS_ = (TY)lhs;                                                                                                 \
+    TY RHS_ = (TY)rhs;                                                                                                 \
+    TY RESULT_ = LHS_ % RHS_;                                                                                          \
+    if (RHS_ == 0) {                                                                                                   \
+      fprintf(stderr, "Mod by zero @ %04X\n", machine->pc - 4);                                                        \
+      return false;                                                                                                    \
+    }                                                                                                                  \
+    machine->reg_status.numeric = 0;                                                                                   \
+    machine->reg_status.flag_z = RESULT_ == 0;                                                                         \
+    machine->reg_status.flag_n = RESULT_ < 0;                                                                          \
+    result = (u64)RESULT_;                                                                                             \
+  };
+    switch (oplen) {
+    case OPLEN_8: {
+      IMOD_WITH_TY(i64);
+    } break;
+    case OPLEN_4: {
+      IMOD_WITH_TY(i32);
+    } break;
+    case OPLEN_2: {
+      IMOD_WITH_TY(i16);
+    } break;
+    case OPLEN_1: {
+      IMOD_WITH_TY(i8);
+    } break;
+    default:
+      PANIC();
+    }
+    *dest = result;
+  } break;
   case OPCODE_FADD: {
     u64 *dest = machine_reg(machine, GET_OPERAND0(inst));
     u64 lhs = *machine_reg(machine, GET_OPERAND1(inst));
@@ -609,13 +672,13 @@ static inline bool machine_next(Machine *machine) {
     u64 result;
 #define FADD_WITH_TY(TY)                                                                                               \
   {                                                                                                                    \
-    TY LHS_ = (TY)lhs;                                                                                                 \
-    TY RHS_ = (TY)rhs;                                                                                                 \
+    TY LHS_ = TRANSMUTE(TY, lhs);                                                                                      \
+    TY RHS_ = TRANSMUTE(TY, rhs);                                                                                      \
     TY RESULT_ = LHS_ + RHS_;                                                                                          \
     machine->reg_status.numeric = 0;                                                                                   \
     machine->reg_status.flag_z = RESULT_ == 0;                                                                         \
     machine->reg_status.flag_n = RESULT_ < 0;                                                                          \
-    result = *((u64 *)&RESULT_);                                                                                       \
+    result = TRANSMUTE(u64, RESULT_);                                                                                  \
   };
     switch (oplen) {
     case OPLEN_8: {
@@ -626,7 +689,7 @@ static inline bool machine_next(Machine *machine) {
     } break;
     case OPLEN_2:
     case OPLEN_1: {
-      fprintf(stderr, "Illegal instruction @ 0x%04X (note: floating point operations cannot only be qword or dword)\n",
+      fprintf(stderr, "Illegal instruction @ 0x%04X (note: floating point operations must only be qword or dword)\n",
               machine->pc - 4);
       return false;
     } break;
@@ -642,13 +705,13 @@ static inline bool machine_next(Machine *machine) {
     u64 result;
 #define FSUB_WITH_TY(TY)                                                                                               \
   {                                                                                                                    \
-    TY LHS_ = (TY)lhs;                                                                                                 \
-    TY RHS_ = (TY)rhs;                                                                                                 \
+    TY LHS_ = TRANSMUTE(TY, lhs);                                                                                      \
+    TY RHS_ = TRANSMUTE(TY, rhs);                                                                                      \
     TY RESULT_ = LHS_ - RHS_;                                                                                          \
     machine->reg_status.numeric = 0;                                                                                   \
     machine->reg_status.flag_z = RESULT_ == 0;                                                                         \
     machine->reg_status.flag_n = RESULT_ < 0;                                                                          \
-    result = *((u64 *)&RESULT_);                                                                                       \
+    result = TRANSMUTE(u64, RESULT_);                                                                                  \
   };
     switch (oplen) {
     case OPLEN_8: {
@@ -659,7 +722,7 @@ static inline bool machine_next(Machine *machine) {
     } break;
     case OPLEN_2:
     case OPLEN_1: {
-      fprintf(stderr, "Illegal instruction @ 0x%04X (note: floating point operations cannot only be qword or dword)\n",
+      fprintf(stderr, "Illegal instruction @ 0x%04X (note: floating point operations must only be qword or dword)\n",
               machine->pc - 4);
       return false;
     } break;
@@ -675,13 +738,13 @@ static inline bool machine_next(Machine *machine) {
     u64 result;
 #define FMUL_WITH_TY(TY)                                                                                               \
   {                                                                                                                    \
-    TY LHS_ = (TY)lhs;                                                                                                 \
-    TY RHS_ = (TY)rhs;                                                                                                 \
+    TY LHS_ = TRANSMUTE(TY, lhs);                                                                                      \
+    TY RHS_ = TRANSMUTE(TY, rhs);                                                                                      \
     TY RESULT_ = LHS_ * RHS_;                                                                                          \
     machine->reg_status.numeric = 0;                                                                                   \
     machine->reg_status.flag_z = RESULT_ == 0;                                                                         \
     machine->reg_status.flag_n = RESULT_ < 0;                                                                          \
-    result = *((u64 *)&RESULT_);                                                                                       \
+    result = TRANSMUTE(u64, RESULT_);                                                                                  \
   };
     switch (oplen) {
     case OPLEN_8: {
@@ -692,7 +755,7 @@ static inline bool machine_next(Machine *machine) {
     } break;
     case OPLEN_2:
     case OPLEN_1: {
-      fprintf(stderr, "Illegal instruction @ 0x%04X (note: floating point operations cannot only be qword or dword)\n",
+      fprintf(stderr, "Illegal instruction @ 0x%04X (note: floating point operations must only be qword or dword)\n",
               machine->pc - 4);
       return false;
     } break;
@@ -702,25 +765,155 @@ static inline bool machine_next(Machine *machine) {
     *dest = result;
   } break;
   case OPCODE_FDIV: {
-    TODO();
+    u64 *dest = machine_reg(machine, GET_OPERAND0(inst));
+    u64 lhs = *machine_reg(machine, GET_OPERAND1(inst));
+    u64 rhs = *machine_reg(machine, GET_OPERAND2(inst));
+    u64 result;
+#define FDIV_WITH_TY(TY)                                                                                               \
+  {                                                                                                                    \
+    TY LHS_ = TRANSMUTE(TY, lhs);                                                                                      \
+    TY RHS_ = TRANSMUTE(TY, rhs);                                                                                      \
+    TY RESULT_ = LHS_ / RHS_;                                                                                          \
+    machine->reg_status.numeric = 0;                                                                                   \
+    machine->reg_status.flag_z = RESULT_ == 0;                                                                         \
+    machine->reg_status.flag_n = RESULT_ < 0;                                                                          \
+    result = TRANSMUTE(u64, RESULT_);                                                                                  \
+  };
+    switch (oplen) {
+    case OPLEN_8: {
+      FDIV_WITH_TY(f64);
+    } break;
+    case OPLEN_4: {
+      FDIV_WITH_TY(f32);
+    } break;
+    case OPLEN_2:
+    case OPLEN_1: {
+      fprintf(stderr, "Illegal instruction @ 0x%04X (note: floating point operations must only be qword or dword)\n",
+              machine->pc - 4);
+      return false;
+    } break;
+    default:
+      PANIC();
+    }
+    *dest = result;
   } break;
   case OPCODE_FMOD: {
-    TODO();
+    u64 *dest = machine_reg(machine, GET_OPERAND0(inst));
+    u64 lhs = *machine_reg(machine, GET_OPERAND1(inst));
+    u64 rhs = *machine_reg(machine, GET_OPERAND2(inst));
+    u64 result;
+    switch (oplen) {
+    case OPLEN_8: {
+      f64 lhs_ = TRANSMUTE(f64, (lhs));
+      f64 rhs_ = TRANSMUTE(f64, (rhs));
+      f64 result_ = fmod(lhs_, rhs_);
+      machine->reg_status.numeric = 0;
+      machine->reg_status.flag_z = result_ == 0;
+      machine->reg_status.flag_n = result_ < 0;
+      result = TRANSMUTE(u64, result_);
+    } break;
+    case OPLEN_4: {
+      f32 lhs_ = TRANSMUTE(f32, (lhs));
+      f32 rhs_ = TRANSMUTE(f32, (rhs));
+      f32 result_ = fmodf(lhs_, rhs_);
+      machine->reg_status.numeric = 0;
+      machine->reg_status.flag_z = result_ == 0;
+      machine->reg_status.flag_n = result_ < 0;
+      result = TRANSMUTE(u64, result_);
+    } break;
+    case OPLEN_2:
+    case OPLEN_1: {
+      fprintf(stderr, "Illegal instruction @ 0x%04X (note: floating point operations must only be qword or dword)\n",
+              machine->pc - 4);
+      return false;
+    } break;
+    default:
+      PANIC();
+    }
+    *dest = result;
   } break;
   case OPCODE_AND: {
-    TODO();
+    u64 *dest = machine_reg(machine, GET_OPERAND0(inst));
+    u64 lhs = *machine_reg(machine, GET_OPERAND1(inst));
+    u64 rhs = *machine_reg(machine, GET_OPERAND2(inst));
+    machine->reg_status.numeric = 0;
+    u64 result = lhs & rhs;
+    result = mask_val_and_set_flag_n(machine, result, oplen);
+    machine->reg_status.flag_z = result == 0;
+    *dest = result;
   } break;
   case OPCODE_OR: {
-    TODO();
+    u64 *dest = machine_reg(machine, GET_OPERAND0(inst));
+    u64 lhs = *machine_reg(machine, GET_OPERAND1(inst));
+    u64 rhs = *machine_reg(machine, GET_OPERAND2(inst));
+    machine->reg_status.numeric = 0;
+    u64 result = lhs | rhs;
+    result = mask_val_and_set_flag_n(machine, result, oplen);
+    *dest = result;
   } break;
   case OPCODE_XOR: {
-    TODO();
+    u64 *dest = machine_reg(machine, GET_OPERAND0(inst));
+    u64 lhs = *machine_reg(machine, GET_OPERAND1(inst));
+    u64 rhs = *machine_reg(machine, GET_OPERAND2(inst));
+    machine->reg_status.numeric = 0;
+    u64 result = lhs ^ rhs;
+    result = mask_val_and_set_flag_n(machine, result, oplen);
+    machine->reg_status.flag_z = result == 0;
+    *dest = result;
   } break;
   case OPCODE_NOT: {
-    TODO();
+    u64 *dest = machine_reg(machine, GET_OPERAND0(inst));
+    u64 lhs = *machine_reg(machine, GET_OPERAND1(inst));
+    machine->reg_status.numeric = 0;
+    u64 result = ~lhs;
+    result = mask_val_and_set_flag_n(machine, result, oplen);
+    machine->reg_status.flag_z = result == 0;
+    *dest = result;
   } break;
   case OPCODE_MULADD: {
-    TODO();
+    // dest = lhs * rhs + rhs2
+    u64 *dest = machine_reg(machine, GET_OPERAND0(inst));
+    u64 lhs = *machine_reg(machine, GET_OPERAND1(inst));
+    u64 rhs = *machine_reg(machine, GET_OPERAND2(inst));
+    u64 rhs2 = *machine_reg(machine, GET_OPERAND3(inst));
+    u64 result;
+#define MULADD_WITH_TY(TY, SIGNED_TY)                                                                                  \
+  {                                                                                                                    \
+    TY LHS_ = (TY)lhs;                                                                                                 \
+    TY RHS_ = (TY)rhs;                                                                                                 \
+    TY RHS2_ = (TY)rhs2;                                                                                               \
+    DBG_PRINT(LHS_);                                                                                                   \
+    DBG_PRINT(RHS_);                                                                                                   \
+    DBG_PRINT(RHS2_);                                                                                                  \
+    TY RESULT_ = LHS_ * RHS_;                                                                                          \
+    machine->reg_status.numeric = 0;                                                                                   \
+    machine->reg_status.flag_v = (RESULT_ < LHS_) | (RESULT_ < RHS_);                                                  \
+    DBG_PRINT(RESULT_);                                                                                                \
+    RESULT_ += RHS2_;                                                                                                  \
+    DBG_PRINT(RESULT_);                                                                                                \
+    machine->reg_status.flag_z = RESULT_ == 0;                                                                         \
+    machine->reg_status.flag_n = (SIGNED_TY)RESULT_ < 0;                                                               \
+    machine->reg_status.flag_v |= (RESULT_ < LHS_) | (RESULT_ < RHS_);                                                 \
+    result = RESULT_;                                                                                                  \
+  };
+    switch (oplen) {
+    case OPLEN_8: {
+      MULADD_WITH_TY(u64, i64);
+    } break;
+    case OPLEN_4: {
+      MULADD_WITH_TY(u32, i32);
+    } break;
+    case OPLEN_2: {
+      MULADD_WITH_TY(u16, i16);
+    } break;
+    case OPLEN_1: {
+      MULADD_WITH_TY(u8, i8);
+    } break;
+    default:
+      PANIC();
+    }
+    *dest = result;
+
   } break;
   case OPCODE_CALL: {
     if (machine->reg_sp + 1 >= PC_INIT) {

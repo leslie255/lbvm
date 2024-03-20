@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 
 typedef uint64_t u64;
 typedef uint32_t u32;
@@ -37,3 +38,13 @@ void _lbvm_print_stacktrace() {
 #define PANIC_PRINT(...)                                                                                               \
   (fprintf(stderr, "[%s@%s:%d] PANIC\n", __FUNCTION__, __FILE__, __LINE__), fprintf(stderr, __VA_ARGS__),              \
    _lbvm_print_stacktrace(), exit(1))
+
+/// Return `0` to the caller if value is `0`
+#define TRY_NULL(X)                                                                                                    \
+  {                                                                                                                    \
+    if ((X) == 0) {                                                                                                    \
+      return 0;                                                                                                        \
+    }                                                                                                                  \
+  }
+
+#define TRANSMUTE(TY, X) (*(TY*)&(X))
