@@ -5,7 +5,9 @@ It is not made as a "useful" bytecode VM hence some of the design choices.
 
 See `manual.md` for design of the Bytecode VM.
 
-Currently work in progress (almost finished!), an assembler is planned but it won't be written in C.
+Currently everything except `native_call` instruction works (so you can't call a local native function in the bytecode, but you can call libc functions).
+
+An assembler is planned but it won't be written in C.
 
 ## LICENSE
 
