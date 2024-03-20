@@ -222,8 +222,7 @@ static inline bool machine_next(Machine *machine) {
   case OPCODE_LOAD_DIR: {
     machine->reg_status.numeric = 0;
     u64 *dest_reg = machine_reg(machine, GET_OPERAND0(inst));
-    MACHINE_CHECK_PC_OVERFLOW(machine, 8);
-    u64 addr = machine_fetch_data_qword(machine);
+    u64 addr = *machine_reg(machine, GET_OPERAND1(inst));
     void *src = solve_addr(machine, GET_FLAGS(inst) & 0b00000001, addr);
     TRY_NULL(src);
     *dest_reg = 0;
@@ -889,15 +888,10 @@ static inline bool machine_next(Machine *machine) {
     TY LHS_ = (TY)lhs;                                                                                                 \
     TY RHS_ = (TY)rhs;                                                                                                 \
     TY RHS2_ = (TY)rhs2;                                                                                               \
-    DBG_PRINT(LHS_);                                                                                                   \
-    DBG_PRINT(RHS_);                                                                                                   \
-    DBG_PRINT(RHS2_);                                                                                                  \
     TY RESULT_ = LHS_ * RHS_;                                                                                          \
     machine->reg_status.numeric = 0;                                                                                   \
     machine->reg_status.flag_v = (RESULT_ < LHS_) | (RESULT_ < RHS_);                                                  \
-    DBG_PRINT(RESULT_);                                                                                                \
     RESULT_ += RHS2_;                                                                                                  \
-    DBG_PRINT(RESULT_);                                                                                                \
     machine->reg_status.flag_z = RESULT_ == 0;                                                                         \
     machine->reg_status.flag_n = (SIGNED_TY)RESULT_ < 0;                                                               \
     machine->reg_status.flag_v |= (RESULT_ < LHS_) | (RESULT_ < RHS_);                                                 \

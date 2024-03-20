@@ -73,4 +73,3 @@ DEF_PRINT_HEX_FUNC(isize, "%016zX");
 #define DBG() (printf("[%s@%s:%d]\n", __FUN CTION__, __FILE__, __LINE__))
 #define DBG_PRINT_HEX(X) (printf("[%s@%s:%d] " #X " = ", __FUNCTION__, __FILE__, __LINE__), PRINT_HEX(X), printf("\n"))
 #define DBG_PRINT(X) (printf("[%s@%s:%d] " #X " = ", __FUNCTION__, __FILE__, __LINE__), PRINT(X), printf("\n"))
-#define TODO() (printf("[%s@%s:%d] Unimplemented\n", __FUNCTION__, __FILE__, __LINE__), exit(1))

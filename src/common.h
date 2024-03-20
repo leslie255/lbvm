@@ -48,3 +48,5 @@ void _lbvm_print_stacktrace() {
   }
 
 #define TRANSMUTE(TY, X) (*(TY*)&(X))
+
+#define TODO() (printf("[%s@%s:%d] Unimplemented\n", __FUNCTION__, __FILE__, __LINE__), exit(1))

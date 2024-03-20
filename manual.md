@@ -27,7 +27,66 @@ LBVM has 16 registers of 64 bits, encoded as 0~15.
 | status | `14`     | Status register   |
 | sp     | `15`     | Stack pointer     |
 
+## General format for instructions
+
+Small Instruction (4 bytes):
+
+```
+byte0: [opcode:6][oplen:2]
+byte1: [reg1:4][reg0:4]
+byte2: [reg3:4][reg2:4]
+byte3: [flags:8]
+```
+
+Jump/Branch Instruction (4 bytes):
+
+```
+byte0:    [opcode:6][-]
+byte1~2:  [offset:16]
+byte3:    [flags:8]
+```
+
+Big Instruction (12 bytes):
+
+```
+byte0:    [opcode:6][oplen:2]
+byte1:    [reg1:4][reg0:4]
+byte2:    [reg3:4][reg2:4]
+byte3:    [flags:8]
+byte4~11: [data:64]
+```
+
+`oplen` is the length of operations:
+
+| Length    | Encoding |
+|-----------|----------|
+| qword (8) | `0`      |
+| dword (4) | `1`      |
+| word (2)  | `2`      |
+| byte (1)  | `3`      |
+
 ## Status register and status flags
+
+LBVM has 7 status flags, stored in the 7 least significant bits of the status register.
+
+| Abbreviation | Meaning       | Encoding (Binary) |
+|--------------|---------------|-------------------|
+| `N`          | **N**egative  | `0b00000001`      |
+| `Z`          | **Z**ero      | `0b00000010`      |
+| `C`          | **C**arry     | `0b00000100`      |
+| `V`          | O**v**erflow  | `0b00001000`      |
+| `E`          | **E**qual     | `0b00010000`      |
+| `G`          | **G**reater   | `0b00100000`      |
+| `L`          | **L**ess-than | `0b01000000`      |
+
+Despite of that, the status register is 64 bits, for convenience sake.
+
+Any instruction that sets a status flag clears all other irrelevant bits to zero.
+
+Instructions that uses the status flags (e.g. `b`, `csel`) uses its 8 `flags` bits as the status flags.
+The 7 least significant bits can be masked together for boolean OR logic, while the most significant bit is used as negation.
+
+For example, the byte `0b10110000` (`0b10000000 & G & E`) encodes the condition of `!(greater | equal)`.
 
 ## Memory
 
@@ -51,40 +110,72 @@ LBVM has three addressing modes for load/store instructions.
 - `dir`: Direct
 - `ind`: Indirect (loads value on address of `reg + offset`, where `offset` is a 64-bit immediate)
 
-## General format for instructions
+Note that for `store` instructions, the addressing mode refers to the address of the destination address, unlike `load`, for which the addressing mode determines the location of the source value.
 
-Small Instruction (4 bytes):
+For this reason `store_dir` and `load_dir` is a small instruction while the other load/store instructions are big instructions.
 
-```
-byte0: [opcode:6][oplen:2]
-byte1: [operand1:4][operand0:4]
-byte2: [operand3:4][operand2:4]
-byte3: [flags:8]
-```
+## Opcode & oplen
 
-Jump/Branch Instruction (4 bytes):
+The opcode consist of a 6 bit opcode and a 2 bit oplen.
 
-```
-byte0:    [opcode:6][-]
-byte1~2:  [offset:16]
-byte3:    [flags:8]
-```
+Oplen is the length associated with this operation:
 
-Big Instruction (12 bytes):
+| Name  | Size | Encoding            |
+|-------|------|---------------------|
+| qword | 8    | `0b00`              |
+| dword | 4    | `0b01`              |
+| word  | 2    | `0b10`              |
+| byte  | 1    | `0b11`              |
 
-```
-byte0:    [opcode:6][oplen:2]
-byte1:    [operand1:4][operand0:4]
-byte2:    [operand3:4][operand2:4]
-byte3:    [flags:8]
-byte4~11: [data:64]
-```
+Oplen is irrelevant for some operations.
 
-`oplen` is the length of operations:
+## Instruction set
 
-| Length    | Encoding |
-|-----------|----------|
-| qword (8) | `0`      |
-| dword (4) | `1`      |
-| word (2)  | `2`      |
-| byte (1)  | `3`      |
+| Name        | Oplen relevant?  | Status affected | Encoding Fomat | Operands                          |
+|-------------|----------------- |-----------------|----------------|-----------------------------------|
+| brk         | No               | -               | Small          | `[-][-][-][-][-]`                 |
+| cbrk        | No               | -               | Small          | `[-][-][-][-][cond]`              |
+| nop         | No               | -               | Small          | `[-][-][-][-][-]`                 |
+| load_imm    | Yes              | NZ              | Big            | `[dest][-][-][vmem][data]`        |
+| load_dir    | Yes              | NZ              | Big            | `[dest][addr][vmem][-]`           |
+| load_ind    | Yes              | NZ              | Big            | `[dest][addr][-][vmem][offset]`   |
+| store_imm   | Yes              | NZ              | Big            | `[-][src][-][-][vmem][addr]`      |
+| store_dir   | Yes              | NZ              | Small          | `[addr][src][-][-][-]`            |
+| store_ind   | Yes              | NZ              | Big            | `[addr][src][-][-][vmem][offset]` |
+| mov         | Yes              | NZ              | Small          | `[dest][src][-][-][-]`            |
+| cmp         | Yes              | NZCVEGL         | Small          | `[lhs][rhs][-][-][-]`             |
+| csel        | Yes              | -               | Small          | `[dest][lhs][rhs][-][cond]`       |
+| b           | No               | -               | Jump/Branch    | `[offset][cond]`                  |
+| j           | No               | -               | Jump/Branch    | `[offset][-]`                     |
+| add         | Yes              | NZCV            | Small          | `[dest][lhs][rhs][][]`            |
+| sub         | Yes              | NZCV            | Small          | `[dest][lhs][rhs][][]`            |
+| mul         | Yes              | NZV             | Small          | `[dest][lhs][rhs][][]`            |
+| div         | Yes              | NZ              | Small          | `[dest][lhs][rhs][][]`            |
+| mod         | Yes              | NZ              | Small          | `[dest][lhs][rhs][][]`            |
+| iadd        | Yes              | NZCV            | Small          | `[dest][lhs][rhs][][]`            |
+| isub        | Yes              | NZCV            | Small          | `[dest][lhs][rhs][][]`            |
+| imul        | Yes              | NZV             | Small          | `[dest][lhs][rhs][][]`            |
+| idiv        | Yes              | NZ              | Small          | `[dest][lhs][rhs][][]`            |
+| imod        | Yes              | NZ              | Small          | `[dest][lhs][rhs][][]`            |
+| fadd        | Only qword/dword | NZ              | Small          | `[dest][lhs][rhs][][]`            |
+| fsub        | Only qword/dword | NZ              | Small          | `[dest][lhs][rhs][][]`            |
+| fmul        | Only qword/dword | NZ              | Small          | `[dest][lhs][rhs][][]`            |
+| fdiv        | Only qword/dword | NZ              | Small          | `[dest][lhs][rhs][][]`            |
+| fmod        | Only qword/dword | NZ              | Small          | `[dest][lhs][rhs][][]`            |
+| and         | Yes              | NZ              | Small          | `[dest][lhs][rhs][][]`            |
+| or          | Yes              | NZ              | Small          | `[dest][lhs][rhs][][]`            |
+| xor         | Yes              | NZ              | Small          | `[dest][lhs][rhs][][]`            |
+| not         | Yes              | NZ              | Small          | `[dest][lhs][][][]`               |
+| muladd      | Yes              | NZV             | Small          | `[dest][lhs][rhs][rhs2][]`        |
+| call        | No               | -               | Jump/Branch    | `[offset][-]`                     |
+| ccall       | No               | -               | Jump/Branch    | `[offset][cond]`                  |
+| ret         | No               | -               | Small          | `[-][-][-][-][-]`                 |
+| push        | Yes              | -               | Small          | `[src][-][-][-][-]`               |
+| pop         | Yes              | NZ              | Small          | `[dest][-][-][-][-]`              |
+| libc_call   | No               | -               | Small          | `[libc_callcode][-][-][-][-]`     |
+| native_call | Big              | -               | Small          | `[-][-][-][-][-][addr]`           |
+| breakpoint  | No               | -               | Small          | `[-][-][-][-][-]`                 |
+
+## LibC callcodes
+
+TODO
