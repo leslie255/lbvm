@@ -8,6 +8,8 @@ LBVM is little endian.
 
 LBVM has 16 registers of 64 bits, encoded as 0~15.
 
+All registers are callee-saved.
+
 | Name   | Encoding | Special function? |
 |--------|----------|-------------------|
 | r0     | `0`      | No                |
@@ -122,7 +124,7 @@ For this reason `store_dir` and `load_dir` is a small instruction while the othe
 
 ## Instruction set
 
-| Name        | Oplen relevant?  | Status affected | Encoding Fomat | Operands                          |
+| Name        | Oplen relevant?  | Status affected | Encoding Fomat | Encoding (without first byte)     |
 |-------------|----------------- |-----------------|----------------|-----------------------------------|
 | brk         | No               | -               | Small          | `[-][-][-][-][-]`                 |
 | cbrk        | No               | -               | Small          | `[-][-][-][-][cond]`              |
@@ -138,26 +140,26 @@ For this reason `store_dir` and `load_dir` is a small instruction while the othe
 | csel        | Yes              | -               | Small          | `[dest][lhs][rhs][-][cond]`       |
 | b           | No               | -               | Jump/Branch    | `[offset][cond]`                  |
 | j           | No               | -               | Jump/Branch    | `[offset][-]`                     |
-| add         | Yes              | NZCV            | Small          | `[dest][lhs][rhs][][]`            |
-| sub         | Yes              | NZCV            | Small          | `[dest][lhs][rhs][][]`            |
-| mul         | Yes              | NZV             | Small          | `[dest][lhs][rhs][][]`            |
-| div         | Yes              | NZ              | Small          | `[dest][lhs][rhs][][]`            |
-| mod         | Yes              | NZ              | Small          | `[dest][lhs][rhs][][]`            |
-| iadd        | Yes              | NZCV            | Small          | `[dest][lhs][rhs][][]`            |
-| isub        | Yes              | NZCV            | Small          | `[dest][lhs][rhs][][]`            |
-| imul        | Yes              | NZV             | Small          | `[dest][lhs][rhs][][]`            |
-| idiv        | Yes              | NZ              | Small          | `[dest][lhs][rhs][][]`            |
-| imod        | Yes              | NZ              | Small          | `[dest][lhs][rhs][][]`            |
-| fadd        | Only qword/dword | NZ              | Small          | `[dest][lhs][rhs][][]`            |
-| fsub        | Only qword/dword | NZ              | Small          | `[dest][lhs][rhs][][]`            |
-| fmul        | Only qword/dword | NZ              | Small          | `[dest][lhs][rhs][][]`            |
-| fdiv        | Only qword/dword | NZ              | Small          | `[dest][lhs][rhs][][]`            |
-| fmod        | Only qword/dword | NZ              | Small          | `[dest][lhs][rhs][][]`            |
-| and         | Yes              | NZ              | Small          | `[dest][lhs][rhs][][]`            |
-| or          | Yes              | NZ              | Small          | `[dest][lhs][rhs][][]`            |
-| xor         | Yes              | NZ              | Small          | `[dest][lhs][rhs][][]`            |
-| not         | Yes              | NZ              | Small          | `[dest][lhs][][][]`               |
-| muladd      | Yes              | NZV             | Small          | `[dest][lhs][rhs][rhs2][]`        |
+| add         | Yes              | NZCV            | Small          | `[dest][lhs][rhs][-][-]`          |
+| sub         | Yes              | NZCV            | Small          | `[dest][lhs][rhs][-][-]`          |
+| mul         | Yes              | NZV             | Small          | `[dest][lhs][rhs][-][-]`          |
+| div         | Yes              | NZ              | Small          | `[dest][lhs][rhs][-][-]`          |
+| mod         | Yes              | NZ              | Small          | `[dest][lhs][rhs][-][-]`          |
+| iadd        | Yes              | NZCV            | Small          | `[dest][lhs][rhs][-][-]`          |
+| isub        | Yes              | NZCV            | Small          | `[dest][lhs][rhs][-][-]`          |
+| imul        | Yes              | NZV             | Small          | `[dest][lhs][rhs][-][-]`          |
+| idiv        | Yes              | NZ              | Small          | `[dest][lhs][rhs][-][-]`          |
+| imod        | Yes              | NZ              | Small          | `[dest][lhs][rhs][-][-]`          |
+| fadd        | Only qword/dword | NZ              | Small          | `[dest][lhs][rhs][-][-]`          |
+| fsub        | Only qword/dword | NZ              | Small          | `[dest][lhs][rhs][-][-]`          |
+| fmul        | Only qword/dword | NZ              | Small          | `[dest][lhs][rhs][-][-]`          |
+| fdiv        | Only qword/dword | NZ              | Small          | `[dest][lhs][rhs][-][-]`          |
+| fmod        | Only qword/dword | NZ              | Small          | `[dest][lhs][rhs][-][-]`          |
+| and         | Yes              | NZ              | Small          | `[dest][lhs][rhs][-][-]`          |
+| or          | Yes              | NZ              | Small          | `[dest][lhs][rhs][-][-]`          |
+| xor         | Yes              | NZ              | Small          | `[dest][lhs][rhs][-][-]`          |
+| not         | Yes              | NZ              | Small          | `[dest][lhs][-][-][-]`            |
+| muladd      | Yes              | NZV             | Small          | `[dest][lhs][rhs][rhs2][-]`       |
 | call        | No               | -               | Jump/Branch    | `[offset][-]`                     |
 | ccall       | No               | -               | Jump/Branch    | `[offset][cond]`                  |
 | ret         | No               | -               | Small          | `[-][-][-][-][-]`                 |
@@ -167,6 +169,34 @@ For this reason `store_dir` and `load_dir` is a small instruction while the othe
 | native_call | Big              | -               | Small          | `[-][-][-][-][-][addr]`           |
 | breakpoint  | No               | -               | Small          | `[-][-][-][-][-]`                 |
 
+Note that because all registers are callee-saved, value of status register might change after `call`, `ccall`, `libc_call`, `native_call`, even though the instruction itself does not touch the status register.
+
 ## LibC callcodes
 
-TODO
+LBVM uses a 8-bit callcode for calling libc functions. It does not cover all the libc functions, but the more common ones.
+
+| Name       | Callcode |
+|------------|----------|
+| `exit`     | 255      |
+| `malloc`   | 1        |
+| `realloc`  | 2        |
+| `free`     | 3        |
+| `fwrite`   | 4        |
+| `fread`    | 5        |
+| `printf`   | 6        |
+| `fprintf`  | 7        |
+| `scanf`    | 8        |
+| `fscanf`   | 9        |
+| `puts`     | 10       |
+| `fputs`    | 11       |
+| `snprintf` | 12       |
+| `fopen`    | 13       |
+| `fclose`   | 14       |
+| `memcpy`   | 15       |
+| `memmove`  | 16       |
+| `memset`   | 17       |
+| `bzero`    | 18       |
+| `strlen`   | 19       |
+| `strcpy`   | 20       |
+| `strcat`   | 21       |
+| `strcmp`   | 22       |

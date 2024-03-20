@@ -181,6 +181,187 @@ static inline u64 mask_val_and_set_flag_n(Machine *machine, u64 value, u8 oplen)
 #define GET_FLAGS(INST) ((INST)[3])
 #define GET_JUMP_OFFSET(INST) (((u16)((INST)[1])) | (u16)((INST)[2] << 8))
 
+static inline bool machine_libc_call(Machine *machine, u8 callcode) {
+#define machine_libc_call_GET_ARG(TY, ARG) TY arg##ARG = TRANSMUTE(TY, machine->reg_##ARG)
+  switch (callcode) {
+  case LIBC_exit: {
+    machine_libc_call_GET_ARG(u8, 0);
+    printf("Machine called libc function `exit` with code %u", arg0);
+    return false;
+  } break;
+  case LIBC_malloc: {
+    machine_libc_call_GET_ARG(usize, 0);
+    machine->reg_0 = (u64)malloc(arg0);
+  } break;
+  case LIBC_realloc: {
+    machine_libc_call_GET_ARG(void *, 0);
+    machine_libc_call_GET_ARG(usize, 1);
+    machine->reg_0 = (u64)realloc(arg0, arg1);
+  } break;
+  case LIBC_free: {
+    machine_libc_call_GET_ARG(void *, 0);
+    free(arg0);
+  } break;
+  case LIBC_fwrite: {
+    TODO();
+  } break;
+  case LIBC_fread: {
+    TODO();
+  } break;
+  case LIBC_printf: {
+    machine_libc_call_GET_ARG(const char *restrict, 0);
+    machine_libc_call_GET_ARG(u64, 1);
+    machine_libc_call_GET_ARG(u64, 2);
+    machine_libc_call_GET_ARG(u64, 3);
+    machine_libc_call_GET_ARG(u64, 4);
+    machine_libc_call_GET_ARG(u64, 5);
+    machine_libc_call_GET_ARG(u64, 6);
+    machine_libc_call_GET_ARG(u64, 7);
+    machine_libc_call_GET_ARG(u64, 8);
+    machine_libc_call_GET_ARG(u64, 9);
+    machine_libc_call_GET_ARG(u64, 10);
+    machine_libc_call_GET_ARG(u64, 11);
+    machine_libc_call_GET_ARG(u64, 12);
+    machine_libc_call_GET_ARG(u64, 13);
+    machine->reg_0 =
+        (u64)printf(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, arg12, arg13);
+  } break;
+  case LIBC_fprintf: {
+    machine_libc_call_GET_ARG(FILE *, 0);
+    machine_libc_call_GET_ARG(const char *restrict, 1);
+    machine_libc_call_GET_ARG(u64, 2);
+    machine_libc_call_GET_ARG(u64, 3);
+    machine_libc_call_GET_ARG(u64, 4);
+    machine_libc_call_GET_ARG(u64, 5);
+    machine_libc_call_GET_ARG(u64, 6);
+    machine_libc_call_GET_ARG(u64, 7);
+    machine_libc_call_GET_ARG(u64, 8);
+    machine_libc_call_GET_ARG(u64, 9);
+    machine_libc_call_GET_ARG(u64, 10);
+    machine_libc_call_GET_ARG(u64, 11);
+    machine_libc_call_GET_ARG(u64, 12);
+    machine_libc_call_GET_ARG(u64, 13);
+    machine->reg_0 =
+        (u64)fprintf(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, arg12, arg13);
+  } break;
+  case LIBC_scanf: {
+    machine_libc_call_GET_ARG(const char *restrict, 0);
+    machine_libc_call_GET_ARG(u64, 1);
+    machine_libc_call_GET_ARG(u64, 2);
+    machine_libc_call_GET_ARG(u64, 3);
+    machine_libc_call_GET_ARG(u64, 4);
+    machine_libc_call_GET_ARG(u64, 5);
+    machine_libc_call_GET_ARG(u64, 6);
+    machine_libc_call_GET_ARG(u64, 7);
+    machine_libc_call_GET_ARG(u64, 8);
+    machine_libc_call_GET_ARG(u64, 9);
+    machine_libc_call_GET_ARG(u64, 10);
+    machine_libc_call_GET_ARG(u64, 11);
+    machine_libc_call_GET_ARG(u64, 12);
+    machine_libc_call_GET_ARG(u64, 13);
+    machine->reg_0 = (u64)scanf(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, arg12, arg13);
+  } break;
+  case LIBC_fscanf: {
+    machine_libc_call_GET_ARG(FILE *, 0);
+    machine_libc_call_GET_ARG(const char *restrict, 1);
+    machine_libc_call_GET_ARG(u64, 2);
+    machine_libc_call_GET_ARG(u64, 3);
+    machine_libc_call_GET_ARG(u64, 4);
+    machine_libc_call_GET_ARG(u64, 5);
+    machine_libc_call_GET_ARG(u64, 6);
+    machine_libc_call_GET_ARG(u64, 7);
+    machine_libc_call_GET_ARG(u64, 8);
+    machine_libc_call_GET_ARG(u64, 9);
+    machine_libc_call_GET_ARG(u64, 10);
+    machine_libc_call_GET_ARG(u64, 11);
+    machine_libc_call_GET_ARG(u64, 12);
+    machine_libc_call_GET_ARG(u64, 13);
+    machine->reg_0 =
+        (u64)fscanf(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, arg12, arg13);
+  } break;
+  case LIBC_puts: {
+    machine_libc_call_GET_ARG(const char *, 0);
+    int result = puts(arg0);
+    machine->reg_0 = (u64)result;
+  } break;
+  case LIBC_fputs: {
+    machine_libc_call_GET_ARG(const char *, 0);
+    machine_libc_call_GET_ARG(FILE *, 1);
+    machine->reg_0 = (u64)fputs(arg0, arg1);
+  } break;
+  case LIBC_snprintf: {
+    machine_libc_call_GET_ARG(char *restrict, 0);
+    machine_libc_call_GET_ARG(usize, 1);
+    machine_libc_call_GET_ARG(const char *restrict, 2);
+    machine_libc_call_GET_ARG(u64, 3);
+    machine_libc_call_GET_ARG(u64, 4);
+    machine_libc_call_GET_ARG(u64, 5);
+    machine_libc_call_GET_ARG(u64, 6);
+    machine_libc_call_GET_ARG(u64, 7);
+    machine_libc_call_GET_ARG(u64, 8);
+    machine_libc_call_GET_ARG(u64, 9);
+    machine_libc_call_GET_ARG(u64, 10);
+    machine_libc_call_GET_ARG(u64, 11);
+    machine_libc_call_GET_ARG(u64, 12);
+    machine_libc_call_GET_ARG(u64, 13);
+    machine->reg_0 =
+        (u64)snprintf(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, arg12, arg13);
+  } break;
+  case LIBC_fopen: {
+    machine_libc_call_GET_ARG(const char *restrict, 0);
+    machine_libc_call_GET_ARG(const char *restrict, 1);
+    machine->reg_0 = (u64)fopen(arg0, arg1);
+  } break;
+  case LIBC_fclose: {
+    machine_libc_call_GET_ARG(FILE *, 0);
+    machine->reg_0 = (u64)fclose(arg0);
+  } break;
+  case LIBC_memcpy: {
+    machine_libc_call_GET_ARG(void *, 0);
+    machine_libc_call_GET_ARG(void *, 1);
+    machine_libc_call_GET_ARG(size_t, 2);
+    machine->reg_0 = (u64)memcpy(arg0, arg1, arg2);
+  } break;
+  case LIBC_memmove: {
+    machine_libc_call_GET_ARG(void *, 0);
+    machine_libc_call_GET_ARG(void *, 1);
+    machine_libc_call_GET_ARG(size_t, 2);
+    machine->reg_0 = (u64)memmove(arg0, arg1, arg2);
+  } break;
+  case LIBC_memset: {
+    machine_libc_call_GET_ARG(void *, 0);
+    machine_libc_call_GET_ARG(int, 1);
+    machine_libc_call_GET_ARG(size_t, 2);
+    machine->reg_0 = (u64)memset(arg0, arg1, arg2);
+  } break;
+  case LIBC_bzero: {
+    machine_libc_call_GET_ARG(void *, 0);
+    machine_libc_call_GET_ARG(size_t, 1);
+    machine->reg_0 = (u64)bzero(arg0, arg1);
+  } break;
+  case LIBC_strlen: {
+    machine_libc_call_GET_ARG(const char *, 0);
+    machine->reg_0 = (u64)strlen(arg0);
+  } break;
+  case LIBC_strcpy: {
+    machine_libc_call_GET_ARG(char *, 0);
+    machine_libc_call_GET_ARG(const char *, 1);
+    machine->reg_0 = (u64)strcpy(arg0, arg1);
+  } break;
+  case LIBC_strcat: {
+    machine_libc_call_GET_ARG(char *, 0);
+    machine_libc_call_GET_ARG(const char *, 1);
+    machine->reg_0 = (u64)strcat(arg0, arg1);
+  } break;
+  case LIBC_strcmp: {
+    machine_libc_call_GET_ARG(const char *, 0);
+    machine_libc_call_GET_ARG(const char *, 1);
+    machine->reg_0 = (u64)strcmp(arg0, arg1);
+  } break;
+  }
+  return true;
+}
+
 //// Returns `true` if should continue, `false` if should stop.
 static inline bool machine_next(Machine *machine) {
   MACHINE_CHECK_PC_OVERFLOW(machine, 4);
@@ -1005,7 +1186,7 @@ static inline bool machine_next(Machine *machine) {
     }
   } break;
   case OPCODE_LIBC_CALL: {
-    TODO();
+    return machine_libc_call(machine, inst[1]);
   } break;
   case OPCODE_NATIVE_CALL: {
     TODO();

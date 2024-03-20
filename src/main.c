@@ -74,14 +74,12 @@ void breakpoint_callback(Machine *machine) {
 i32 main() {
   lbvm_check_platform_compatibility();
 
+  static const char s[] = "hello, world\n";
+
   u8 memory[VMEM_SIZE] = {0};
-
   u8 *writer = &memory[PC_INIT];
-  write_jump_inst(&writer, OPCODE_J, 12, 0);
-  write_big_inst(&writer, OPCODE_LOAD_IMM + OPLEN_8, REG_0, 0, 0, 0, 0, 0xFF);
-  write_big_inst(&writer, OPCODE_LOAD_IMM + OPLEN_8, REG_1, 0, 0, 0, 0, 0xFF);
-  write_small_inst(&writer, OPCODE_BREAKPOINT, 0, 0, 0, 0, 0);
-
+  write_big_inst(&writer, OPCODE_LOAD_IMM, REG_0, 0, 0, 0, 0, (u64)&s);
+  write_small_inst(&writer, OPCODE_LIBC_CALL, LIBC_printf, 0, 0, 0, 0);
   Machine machine = {0};
   machine.breakpoint_callback = &breakpoint_callback;
   machine.vmem = memory;
