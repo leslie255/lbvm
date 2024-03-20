@@ -23,6 +23,8 @@ typedef double f64;
 typedef size_t usize;
 typedef ssize_t isize;
 
+// Pretty sure `_lbvm` prefixes are safe to use despite starting with underscore.
+// Unless Louisiana Board of Veterinary Medicine uses this prefix in their C projects.
 void _lbvm_print_stacktrace() {
   void *callstack[128];
   int frames = backtrace(callstack, 128);

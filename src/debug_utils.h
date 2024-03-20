@@ -59,15 +59,15 @@ DEF_PRINT_HEX_FUNC(isize, "%016zX");
 
 #define PRINT_HEX(X)                                                                                                   \
   _Generic((X), u8                                                                                                     \
-           : _lbvm_print_hex_u8, u16                                                                                        \
-           : _lbvm_print_hex_u16, u32                                                                                       \
-           : _lbvm_print_hex_u32, u64                                                                                       \
-           : _lbvm_print_hex_u64, usize                                                                                     \
-           : _lbvm_print_hex_usize, i8                                                                                      \
-           : _lbvm_print_hex_i8, i16                                                                                        \
-           : _lbvm_print_hex_i16, i32                                                                                       \
-           : _lbvm_print_hex_i32, i64                                                                                       \
-           : _lbvm_print_hex_i64, isize                                                                                     \
+           : _lbvm_print_hex_u8, u16                                                                                   \
+           : _lbvm_print_hex_u16, u32                                                                                  \
+           : _lbvm_print_hex_u32, u64                                                                                  \
+           : _lbvm_print_hex_u64, usize                                                                                \
+           : _lbvm_print_hex_usize, i8                                                                                 \
+           : _lbvm_print_hex_i8, i16                                                                                   \
+           : _lbvm_print_hex_i16, i32                                                                                  \
+           : _lbvm_print_hex_i32, i64                                                                                  \
+           : _lbvm_print_hex_i64, isize                                                                                \
            : _lbvm_print_hex_isize)(X)
 
 #define DBG() (printf("[%s@%s:%d]\n", __FUN CTION__, __FILE__, __LINE__))
