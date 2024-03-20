@@ -140,7 +140,7 @@ Oplen is irrelevant for some operations.
 | load_dir    | Yes              | NZ              | Big            | `[dest][addr][vmem][-]`           |
 | load_ind    | Yes              | NZ              | Big            | `[dest][addr][-][vmem][offset]`   |
 | store_imm   | Yes              | NZ              | Big            | `[-][src][-][-][vmem][addr]`      |
-| store_dir   | Yes              | NZ              | Small          | `[addr][src][-][-][-]`            |
+| store_dir   | Yes              | NZ              | Small          | `[addr][src][-][-][vmem]`         |
 | store_ind   | Yes              | NZ              | Big            | `[addr][src][-][-][vmem][offset]` |
 | mov         | Yes              | NZ              | Small          | `[dest][src][-][-][-]`            |
 | cmp         | Yes              | NZCVEGL         | Small          | `[lhs][rhs][-][-][-]`             |
