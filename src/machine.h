@@ -5,15 +5,13 @@
 #include "values.h"
 
 static inline void lbvm_check_platform_compatibility() {
-  u32 x = 1;
+  if (sizeof(void *) != 8) {
+    PANIC_PRINT("This LBVM emulator requires 64-bit host platform\n");
+  }
+  u16 x = 1;
   u8 *ptr = (u8 *)&x;
   if (*ptr != 1) {
-    fprintf(stderr, "LBVM requires little endian platform\n");
-    PANIC();
-  }
-  if (sizeof(void *) != 8) {
-    fprintf(stderr, "LBVM requires 64-bit platforms\n");
-    PANIC();
+    PANIC_PRINT("This LBVM emulator requires little endian host platform\n");
   }
 }
 
@@ -22,7 +20,7 @@ typedef struct machine Machine;
 typedef void (*breakpoint_callback_t)(struct machine *);
 
 struct machine {
-  union status_reg {
+  union machine_status_reg {
     uint64_t numeric;
     struct {
       bool flag_n : 1;
@@ -50,12 +48,12 @@ struct machine {
   u64 reg_12;
   u64 reg_13;
   u64 reg_sp;
-  u8 *memory;
+  u8 *vmem;
   void *breakpoint_callback_context;
   breakpoint_callback_t breakpoint_callback;
 };
 
-static inline void machine_print_regs(Machine *machine) {
+static inline void machine_print_regs(const Machine *machine) {
   printf("pc:\t0x%04X\n", machine->pc);
   printf("r0:\t0x%016llX (%llu)\n", machine->reg_0, machine->reg_0);
   printf("r1:\t0x%016llX (%llu)\n", machine->reg_1, machine->reg_1);
@@ -113,15 +111,14 @@ static inline u64 *machine_reg(Machine *machine, u8 reg_code) {
   case REG_SP:
     return &machine->reg_sp;
   default:
-    fprintf(stderr, "illegal instruction @ 0x%04X\n", machine->pc - 1);
-    exit(1);
+    PANIC_PRINT("Called `%s` with invalid reg code %u\n", __FUNCTION__, reg_code);
   }
 }
 
 /// Fetch the 8 data bytes on pc for big instructions.
 static inline u64 machine_fetch_data_qword(Machine *machine) {
   u64 value;
-  memcpy(&value, &machine->memory[machine->pc], sizeof(u64));
+  memcpy(&value, &machine->vmem[machine->pc], sizeof(u64));
   machine->pc += sizeof(u64);
   return value;
 }
@@ -149,7 +146,7 @@ static inline void *solve_addr(Machine *machine, u8 vmem_flag, u64 addr) {
       fprintf(stderr, "Out of bound stack access @ 0x%04X\n", machine->pc - 12);
       exit(1);
     }
-    return &machine->memory[addr];
+    return &machine->vmem[addr];
   }
 }
 
@@ -194,6 +191,7 @@ static inline u64 mask_val_and_set_flag_n(Machine *machine, u64 value, u8 oplen)
 #define GET_OPERAND2(INST) ((INST)[2] & 0b00001111)
 #define GET_OPERAND3(INST) (((INST)[2] & 0b11110000) >> 4)
 #define GET_FLAGS(INST) ((INST)[3])
+#define GET_JUMP_OFFSET(INST) (((u16)((INST)[1])) | (u16)((INST)[2] << 8))
 
 #define IS_NEGATIVE(X)                                                                                                 \
   _Generic((X), u8 : (i8)(X) < 0, u16 : (i16)(X) < 0, u32 : (i32)(X) < 0, u64 : (i64)(X) < 0, usize : (isize)(X) < 0)
@@ -201,10 +199,10 @@ static inline u64 mask_val_and_set_flag_n(Machine *machine, u64 value, u8 oplen)
 //// Returns `true` if should continue, `false` if should stop.
 static inline bool machine_next(Machine *machine) {
   const u8 inst[4] = {
-      machine->memory[machine->pc + 0],
-      machine->memory[machine->pc + 1],
-      machine->memory[machine->pc + 2],
-      machine->memory[machine->pc + 3],
+      machine->vmem[machine->pc + 0],
+      machine->vmem[machine->pc + 1],
+      machine->vmem[machine->pc + 2],
+      machine->vmem[machine->pc + 3],
   };
   machine->pc += 4;
   const u8 opcode = inst[0] & 0b11111100;
@@ -293,9 +291,8 @@ static inline bool machine_next(Machine *machine) {
   } break;
   case OPCODE_CMP: {
     machine->reg_status.numeric = 0;
-    u64 lhs = *machine_reg(machine, GET_OPERAND0(inst));
-    u64 rhs = *machine_reg(machine, GET_OPERAND0(inst));
-    mask_val_and_set_flag_n(machine, lhs, oplen);
+    u64 lhs = mask_val(*machine_reg(machine, GET_OPERAND0(inst)), oplen);
+    u64 rhs = mask_val(*machine_reg(machine, GET_OPERAND1(inst)), oplen);
     machine->reg_status.flag_z = lhs == 0;
     machine->reg_status.flag_e = lhs == rhs;
     machine->reg_status.flag_g = lhs > rhs;
@@ -319,10 +316,10 @@ static inline bool machine_next(Machine *machine) {
     if (rev)
       cond = !cond;
     if (cond)
-      machine->pc += inst[1];
+      machine->pc += GET_JUMP_OFFSET(inst);
   } break;
   case OPCODE_J: {
-    machine->pc += inst[1];
+    machine->pc += GET_JUMP_OFFSET(inst);
   } break;
   case OPCODE_ADD: {
     u64 *dest = machine_reg(machine, GET_OPERAND0(inst));
@@ -577,10 +574,11 @@ static inline bool machine_next(Machine *machine) {
   {                                                                                                                    \
     TY LHS_ = (TY)lhs;                                                                                                 \
     TY RHS_ = (TY)rhs;                                                                                                 \
+    if (RHS_ == 0) {                                                                                                   \
+      fprintf(stderr, "Division by zero @ %04X\n", machine->pc - 4);                                                   \
+      return false;                                                                                                    \
+    }                                                                                                                  \
     TY RESULT_ = LHS_ / RHS_;                                                                                          \
-    if (RHS_ == 0)                                                                                                     \
-      fprintf(stderr, "Division by zero @ 0x%04X\n", machine->pc - 4);                                                 \
-    return false;                                                                                                      \
     machine->reg_status.numeric = 0;                                                                                   \
     machine->reg_status.flag_z = RESULT_ == 0;                                                                         \
     machine->reg_status.flag_n = RESULT_ < 0;                                                                          \
@@ -604,13 +602,227 @@ static inline bool machine_next(Machine *machine) {
     }
     *dest = result;
   } break;
+  case OPCODE_FADD: {
+    u64 *dest = machine_reg(machine, GET_OPERAND0(inst));
+    u64 lhs = *machine_reg(machine, GET_OPERAND1(inst));
+    u64 rhs = *machine_reg(machine, GET_OPERAND2(inst));
+    u64 result;
+#define FADD_WITH_TY(TY)                                                                                               \
+  {                                                                                                                    \
+    TY LHS_ = (TY)lhs;                                                                                                 \
+    TY RHS_ = (TY)rhs;                                                                                                 \
+    TY RESULT_ = LHS_ + RHS_;                                                                                          \
+    machine->reg_status.numeric = 0;                                                                                   \
+    machine->reg_status.flag_z = RESULT_ == 0;                                                                         \
+    machine->reg_status.flag_n = RESULT_ < 0;                                                                          \
+    result = *((u64 *)&RESULT_);                                                                                       \
+  };
+    switch (oplen) {
+    case OPLEN_8: {
+      FADD_WITH_TY(f64);
+    } break;
+    case OPLEN_4: {
+      FADD_WITH_TY(f32);
+    } break;
+    case OPLEN_2:
+    case OPLEN_1: {
+      fprintf(stderr, "Illegal instruction @ 0x%04X (note: floating point operations cannot only be qword or dword)\n",
+              machine->pc - 4);
+      return false;
+    } break;
+    default:
+      PANIC();
+    }
+    *dest = result;
+  } break;
+  case OPCODE_FSUB: {
+    u64 *dest = machine_reg(machine, GET_OPERAND0(inst));
+    u64 lhs = *machine_reg(machine, GET_OPERAND1(inst));
+    u64 rhs = *machine_reg(machine, GET_OPERAND2(inst));
+    u64 result;
+#define FSUB_WITH_TY(TY)                                                                                               \
+  {                                                                                                                    \
+    TY LHS_ = (TY)lhs;                                                                                                 \
+    TY RHS_ = (TY)rhs;                                                                                                 \
+    TY RESULT_ = LHS_ - RHS_;                                                                                          \
+    machine->reg_status.numeric = 0;                                                                                   \
+    machine->reg_status.flag_z = RESULT_ == 0;                                                                         \
+    machine->reg_status.flag_n = RESULT_ < 0;                                                                          \
+    result = *((u64 *)&RESULT_);                                                                                       \
+  };
+    switch (oplen) {
+    case OPLEN_8: {
+      FSUB_WITH_TY(f64);
+    } break;
+    case OPLEN_4: {
+      FSUB_WITH_TY(f32);
+    } break;
+    case OPLEN_2:
+    case OPLEN_1: {
+      fprintf(stderr, "Illegal instruction @ 0x%04X (note: floating point operations cannot only be qword or dword)\n",
+              machine->pc - 4);
+      return false;
+    } break;
+    default:
+      PANIC();
+    }
+    *dest = result;
+  } break;
+  case OPCODE_FMUL: {
+    u64 *dest = machine_reg(machine, GET_OPERAND0(inst));
+    u64 lhs = *machine_reg(machine, GET_OPERAND1(inst));
+    u64 rhs = *machine_reg(machine, GET_OPERAND2(inst));
+    u64 result;
+#define FMUL_WITH_TY(TY)                                                                                               \
+  {                                                                                                                    \
+    TY LHS_ = (TY)lhs;                                                                                                 \
+    TY RHS_ = (TY)rhs;                                                                                                 \
+    TY RESULT_ = LHS_ * RHS_;                                                                                          \
+    machine->reg_status.numeric = 0;                                                                                   \
+    machine->reg_status.flag_z = RESULT_ == 0;                                                                         \
+    machine->reg_status.flag_n = RESULT_ < 0;                                                                          \
+    result = *((u64 *)&RESULT_);                                                                                       \
+  };
+    switch (oplen) {
+    case OPLEN_8: {
+      FMUL_WITH_TY(f64);
+    } break;
+    case OPLEN_4: {
+      FMUL_WITH_TY(f32);
+    } break;
+    case OPLEN_2:
+    case OPLEN_1: {
+      fprintf(stderr, "Illegal instruction @ 0x%04X (note: floating point operations cannot only be qword or dword)\n",
+              machine->pc - 4);
+      return false;
+    } break;
+    default:
+      PANIC();
+    }
+    *dest = result;
+  } break;
+  case OPCODE_FDIV: {
+    TODO();
+  } break;
+  case OPCODE_FMOD: {
+    TODO();
+  } break;
+  case OPCODE_AND: {
+    TODO();
+  } break;
+  case OPCODE_OR: {
+    TODO();
+  } break;
+  case OPCODE_XOR: {
+    TODO();
+  } break;
+  case OPCODE_NOT: {
+    TODO();
+  } break;
+  case OPCODE_MULADD: {
+    TODO();
+  } break;
+  case OPCODE_CALL: {
+    if (machine->reg_sp + 1 >= PC_INIT) {
+      fprintf(stderr, "Stack overflowed @ %04X\n", machine->pc - 4);
+      return false;
+    }
+    memcpy(&machine->vmem[machine->reg_sp], &machine->pc, 2);
+    machine->reg_sp += 2;
+    machine->pc += GET_JUMP_OFFSET(inst);
+  } break;
+  case OPCODE_CCALL: {
+    u8 cond_flag = GET_FLAGS(inst);
+    u8 rev = cond_flag & 0b10000000;
+    bool cond = (u64)(cond_flag & 0b011111111) & machine->reg_status.numeric;
+    if (rev)
+      cond = !cond;
+    if (cond) {
+      if (machine->reg_sp + 1 >= PC_INIT) {
+        fprintf(stderr, "Stack overflowed @ %04X\n", machine->pc - 4);
+        return false;
+      }
+      memcpy(&machine->vmem[machine->reg_sp], &machine->pc, 2);
+      machine->reg_sp += 2;
+      machine->pc += GET_JUMP_OFFSET(inst);
+    }
+  } break;
+  case OPCODE_RET: {
+    if (machine->reg_sp < 2) {
+      fprintf(stderr, "Stack underflowed @ %04X\n", machine->pc - 4);
+      return false;
+    }
+    machine->reg_sp -= 2;
+    memcpy(&machine->pc, &machine->vmem[machine->reg_sp], 2);
+  } break;
+#define machine_next_PUSH(SIZE)                                                                                        \
+  {                                                                                                                    \
+    if (machine->reg_sp + SIZE - 1 >= PC_INIT) {                                                                       \
+      fprintf(stderr, "Stack overflowed @ %04X\n", machine->pc - 4);                                                   \
+      return false;                                                                                                    \
+    }                                                                                                                  \
+    memcpy(&machine->vmem[machine->reg_sp], machine_reg(machine, GET_OPERAND0(inst)), SIZE);                           \
+    machine->reg_sp += SIZE;                                                                                           \
+  }
+  case OPCODE_PUSH + OPLEN_8: {
+    switch (oplen) {
+    case OPLEN_8: {
+      machine_next_PUSH(8);
+    } break;
+    case OPLEN_4: {
+      machine_next_PUSH(4);
+    } break;
+    case OPLEN_2: {
+      machine_next_PUSH(2);
+    } break;
+    case OPLEN_1: {
+      machine_next_PUSH(1);
+    } break;
+    }
+  } break;
+#define machine_next_POP(TY, SIGNED_TY)                                                                                \
+  {                                                                                                                    \
+    if (machine->reg_sp < sizeof(TY)) {                                                                                \
+      fprintf(stderr, "Stack underflowed @ %04X\n", machine->pc - 4);                                                  \
+      return false;                                                                                                    \
+    }                                                                                                                  \
+    machine->reg_sp -= sizeof(TY);                                                                                     \
+    TY value;                                                                                                          \
+    memcpy(&value, &machine->vmem[machine->reg_sp], sizeof(TY));                                                       \
+    *machine_reg(machine, GET_OPERAND0(inst)) = value;                                                                 \
+    machine->reg_status.numeric = 0;                                                                                   \
+    machine->reg_status.flag_z = value == 0;                                                                           \
+    machine->reg_status.flag_n = (SIGNED_TY)value < 0;                                                                 \
+  }
+  case OPCODE_POP: {
+    switch (oplen) {
+    case OPLEN_8: {
+      machine_next_POP(u64, i64);
+    } break;
+    case OPLEN_4: {
+      machine_next_POP(u32, i32);
+    } break;
+    case OPLEN_2: {
+      machine_next_POP(u16, i16);
+    } break;
+    case OPLEN_1: {
+      machine_next_POP(u8, i8);
+    } break;
+    }
+  } break;
+  case OPCODE_LIBC_CALL: {
+    TODO();
+  } break;
+  case OPCODE_NATIVE_CALL: {
+    TODO();
+  } break;
   case OPCODE_BREAKPOINT: {
     if (machine->breakpoint_callback != NULL) {
       (machine->breakpoint_callback)(machine);
     }
   } break;
   default:
-    fprintf(stderr, "Illegal instruction @ 0x%04X\n", machine->pc - 4);
+    fprintf(stderr, "Illegal instruction @ 0x%04X (note: illegal opcode 0x%02X)\n", machine->pc - 4, inst[1]);
     return false;
   }
   return true;

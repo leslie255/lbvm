@@ -1,7 +1,7 @@
 #pragma once
 
 #define VMEM_SIZE 65536 // 64 kB
-#define PC_INIT 0x1000
+#define PC_INIT 32768
 
 #define OPLEN_8 0b00000000
 #define OPLEN_4 0b00000001
@@ -109,9 +109,10 @@
 #define OPCODE_NOT         OPCODE(32)
 #define OPCODE_MULADD      OPCODE(33)
 #define OPCODE_CALL        OPCODE(34)  // FUNCTIONS/STACK
-#define OPCODE_RET         OPCODE(35)
-#define OPCODE_PUSH        OPCODE(36)
-#define OPCODE_POP         OPCODE(37)
-#define OPCODE_LIBC_CALL   OPCODE(38)  // VIRTUAL
-#define OPCODE_NATIVE_CALL OPCODE(39)
+#define OPCODE_CCALL       OPCODE(35)
+#define OPCODE_RET         OPCODE(36)
+#define OPCODE_PUSH        OPCODE(37)
+#define OPCODE_POP         OPCODE(38)
+#define OPCODE_LIBC_CALL   OPCODE(39)  // VIRTUAL
+#define OPCODE_NATIVE_CALL OPCODE(40)
 #define OPCODE_BREAKPOINT  0b11111100

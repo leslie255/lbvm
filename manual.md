@@ -1,4 +1,4 @@
-# LBVM Implementation Standard
+# LBVM Manual
 
 Note that LBVM is not designed with memory security or safety in mind, which is the reason for some of the design choices.
 
