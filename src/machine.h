@@ -369,7 +369,7 @@ static inline bool machine_libc_call(Machine *machine, u8 callcode) {
   return true;
 }
 
-//// Returns `true` if should continue, `false` if should stop.
+/// Returns `true` if should continue, `false` if should stop.
 static inline bool machine_next(Machine *machine) {
   MACHINE_CHECK_PC_OVERFLOW(machine, 4);
   const u8 inst[4] = {
@@ -1193,7 +1193,7 @@ static inline bool machine_next(Machine *machine) {
     }
   } break;
   case OPCODE_LIBC_CALL: {
-    return machine_libc_call(machine, inst[1]);
+    return machine_libc_call(machine, GET_FLAGS(inst));
   } break;
   case OPCODE_NATIVE_CALL: {
     TODO();

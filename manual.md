@@ -122,7 +122,7 @@ LBVM has three addressing modes for load/store instructions.
 
 Note that for `store` instructions, the addressing mode refers to the address of the destination address, unlike `load`, for which the addressing mode determines the location of the source value.
 
-For this reason `store_dir` and `load_dir` is a small instruction while the other load/store instructions are big instructions.
+For this reason `store_dir` and `load_dir` are small instructions while the other load/store instructions are big instructions.
 
 ## Instruction set
 
@@ -167,7 +167,7 @@ For this reason `store_dir` and `load_dir` is a small instruction while the othe
 | `ret`         | 36     | No               | -               | Small          | `[-][-][-][-][-]`                 |
 | `push`        | 37     | Yes              | -               | Small          | `[src][-][-][-][-]`               |
 | `pop`         | 38     | Yes              | NZ              | Small          | `[dest][-][-][-][-]`              |
-| `libc_call`   | 39     | No               | -               | Small          | `[libc_callcode][-][-][-][-]`     |
+| `libc_call`   | 39     | No               | -               | Small          | `[-][-][-][-][libc_callcode]`     |
 | `native_call` | 40     | No               | -               | Big            | TODO                              |
 | `breakpoint`  | 63     | No               | -               | Small          | `[-][-][-][-][-]`                 |
 

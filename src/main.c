@@ -79,7 +79,7 @@ i32 main() {
   u8 memory[VMEM_SIZE] = {0};
   u8 *writer = &memory[PC_INIT];
   write_big_inst(&writer, OPCODE_LOAD_IMM, REG_0, 0, 0, 0, 0, (u64)&s);
-  write_small_inst(&writer, OPCODE_LIBC_CALL, LIBC_printf, 0, 0, 0, 0);
+  write_small_inst(&writer, OPCODE_LIBC_CALL, 0, 0, 0, 0, LIBC_printf);
   Machine machine = {0};
   machine.breakpoint_callback = &breakpoint_callback;
   machine.vmem = memory;
