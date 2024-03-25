@@ -20,6 +20,7 @@ typedef struct machine Machine;
 typedef void (*breakpoint_callback_t)(struct machine *);
 
 struct machine {
+  bool config_silent;
   union machine_status_reg {
     uint64_t numeric;
     struct {
@@ -94,7 +95,8 @@ static inline u64 *machine_reg(Machine *machine, u8 reg_code) {
 
 #define MACHINE_CHECK_PC_OVERFLOW(MACHINE, LEN)                                                                        \
   if (MACHINE->pc + LEN > VMEM_SIZE) {                                                                                 \
-    fprintf(stderr, "PC overflowed\n");                                                                                \
+    if (!MACHINE->config_silent)                                                                                       \
+      fprintf(stderr, "PC overflowed\n");                                                                              \
     return false;                                                                                                      \
   }
 
@@ -133,7 +135,8 @@ static inline void *solve_addr(Machine *machine, u8 vmem_flag, u64 addr) {
     return (void *)addr;
   } else {
     if (addr > VMEM_SIZE) {
-      fprintf(stderr, "Out of bound stack access @ 0x%04X\n", machine->pc - 4);
+      if (!machine->config_silent)
+        fprintf(stderr, "Out of bound stack access @ 0x%04X\n", machine->pc - 4);
       return NULL;
     }
     return &machine->vmem[addr];
@@ -185,7 +188,8 @@ static inline bool machine_libc_call(Machine *machine, u8 callcode) {
   switch (callcode) {
   case LIBC_exit: {
     u8 arg0 = (*(u8 *)&(machine->reg_0));
-    printf("Machine called libc function `exit` with code %u", arg0);
+    if (!machine->config_silent)
+      printf("Machine called libc function `exit` with code %u", arg0);
     return false;
   } break;
   case LIBC_malloc: {
@@ -383,7 +387,8 @@ static inline bool machine_next(Machine *machine) {
   const u8 oplen = inst[0] & 0b00000011;
   switch (opcode) {
   case OPCODE_BRK:
-    printf("BRK Interrupt @ 0x%04X\n", machine->pc - 4);
+    if (!machine->config_silent)
+      printf("BRK Interrupt @ 0x%04X\n", machine->pc - 4);
     return false;
   case OPCODE_CBRK: {
     u8 cond_flag = GET_FLAGS(inst);
@@ -392,7 +397,8 @@ static inline bool machine_next(Machine *machine) {
     if (rev)
       cond = !cond;
     if (cond) {
-      printf("CBRK Interrupt @ 0x%04X\n", machine->pc - 4);
+      if (!machine->config_silent)
+        printf("CBRK Interrupt @ 0x%04X\n", machine->pc - 4);
       return false;
     }
   } break;
@@ -619,9 +625,11 @@ static inline bool machine_next(Machine *machine) {
     TY LHS_ = (TY)lhs;                                                                                                 \
     TY RHS_ = (TY)rhs;                                                                                                 \
     TY RESULT_ = LHS_ / RHS_;                                                                                          \
-    if (RHS_ == 0)                                                                                                     \
-      fprintf(stderr, "Division by zero @ 0x%04X\n", machine->pc - 4);                                                 \
-    return false;                                                                                                      \
+    if (RHS_ == 0) {                                                                                                   \
+      if (!machine->config_silent)                                                                                     \
+        fprintf(stderr, "Division by zero @ 0x%04X\n", machine->pc - 4);                                               \
+      return false;                                                                                                    \
+    }                                                                                                                  \
     machine->reg_status.numeric = 0;                                                                                   \
     machine->reg_status.flag_z = RESULT_ == 0;                                                                         \
     machine->reg_status.flag_n = (SIGNED_TY)(RESULT_) < 0;                                                             \
@@ -655,9 +663,11 @@ static inline bool machine_next(Machine *machine) {
     TY LHS_ = (TY)lhs;                                                                                                 \
     TY RHS_ = (TY)rhs;                                                                                                 \
     TY RESULT_ = LHS_ % RHS_;                                                                                          \
-    if (RHS_ == 0)                                                                                                     \
-      fprintf(stderr, "Mod by zero @ 0x%04X\n", machine->pc - 4);                                                      \
-    return false;                                                                                                      \
+    if (RHS_ == 0) {                                                                                                   \
+      if (!machine->config_silent)                                                                                     \
+        fprintf(stderr, "Mod by zero @ 0x%04X\n", machine->pc - 4);                                                    \
+      return false;                                                                                                    \
+    }                                                                                                                  \
     machine->reg_status.numeric = 0;                                                                                   \
     machine->reg_status.flag_z = RESULT_ == 0;                                                                         \
     machine->reg_status.flag_n = (SIGNED_TY)(RESULT_) < 0;                                                             \
@@ -796,7 +806,8 @@ static inline bool machine_next(Machine *machine) {
     TY RHS_ = (TY)rhs;                                                                                                 \
     TY RESULT_ = LHS_ / RHS_;                                                                                          \
     if (RHS_ == 0) {                                                                                                   \
-      fprintf(stderr, "Division by zero @ %04X\n", machine->pc - 4);                                                   \
+      if (!machine->config_silent)                                                                                     \
+        fprintf(stderr, "Division by zero @ %04X\n", machine->pc - 4);                                                 \
       return false;                                                                                                    \
     }                                                                                                                  \
     machine->reg_status.numeric = 0;                                                                                   \
@@ -883,8 +894,9 @@ static inline bool machine_next(Machine *machine) {
     } break;
     case OPLEN_2:
     case OPLEN_1: {
-      fprintf(stderr, "Illegal instruction @ 0x%04X (note: floating point operations must only be qword or dword)\n",
-              machine->pc - 4);
+      if (!machine->config_silent)
+        fprintf(stderr, "Illegal instruction @ 0x%04X (note: floating point operations must only be qword or dword)\n",
+                machine->pc - 4);
       return false;
     } break;
     default:
@@ -916,8 +928,9 @@ static inline bool machine_next(Machine *machine) {
     } break;
     case OPLEN_2:
     case OPLEN_1: {
-      fprintf(stderr, "Illegal instruction @ 0x%04X (note: floating point operations must only be qword or dword)\n",
-              machine->pc - 4);
+      if (!machine->config_silent)
+        fprintf(stderr, "Illegal instruction @ 0x%04X (note: floating point operations must only be qword or dword)\n",
+                machine->pc - 4);
       return false;
     } break;
     default:
@@ -949,8 +962,9 @@ static inline bool machine_next(Machine *machine) {
     } break;
     case OPLEN_2:
     case OPLEN_1: {
-      fprintf(stderr, "Illegal instruction @ 0x%04X (note: floating point operations must only be qword or dword)\n",
-              machine->pc - 4);
+      if (!machine->config_silent)
+        fprintf(stderr, "Illegal instruction @ 0x%04X (note: floating point operations must only be qword or dword)\n",
+                machine->pc - 4);
       return false;
     } break;
     default:
@@ -982,8 +996,9 @@ static inline bool machine_next(Machine *machine) {
     } break;
     case OPLEN_2:
     case OPLEN_1: {
-      fprintf(stderr, "Illegal instruction @ 0x%04X (note: floating point operations must only be qword or dword)\n",
-              machine->pc - 4);
+      if (!machine->config_silent)
+        fprintf(stderr, "Illegal instruction @ 0x%04X (note: floating point operations must only be qword or dword)\n",
+                machine->pc - 4);
       return false;
     } break;
     default:
@@ -1017,8 +1032,9 @@ static inline bool machine_next(Machine *machine) {
     } break;
     case OPLEN_2:
     case OPLEN_1: {
-      fprintf(stderr, "Illegal instruction @ 0x%04X (note: floating point operations must only be qword or dword)\n",
-              machine->pc - 4);
+      if (!machine->config_silent)
+        fprintf(stderr, "Illegal instruction @ 0x%04X (note: floating point operations must only be qword or dword)\n",
+                machine->pc - 4);
       return false;
     } break;
     default:
@@ -1106,7 +1122,8 @@ static inline bool machine_next(Machine *machine) {
   } break;
   case OPCODE_CALL: {
     if (machine->reg_sp + 1 >= PC_INIT) {
-      fprintf(stderr, "Stack overflowed @ %04X\n", machine->pc - 4);
+      if (!machine->config_silent)
+        fprintf(stderr, "Stack overflowed @ %04X\n", machine->pc - 4);
       return false;
     }
     memcpy(&machine->vmem[machine->reg_sp], &machine->pc, 2);
@@ -1121,7 +1138,8 @@ static inline bool machine_next(Machine *machine) {
       cond = !cond;
     if (cond) {
       if (machine->reg_sp + 1 >= PC_INIT) {
-        fprintf(stderr, "Stack overflowed @ %04X\n", machine->pc - 4);
+        if (!machine->config_silent)
+          fprintf(stderr, "Stack overflowed @ %04X\n", machine->pc - 4);
         return false;
       }
       memcpy(&machine->vmem[machine->reg_sp], &machine->pc, 2);
@@ -1131,7 +1149,8 @@ static inline bool machine_next(Machine *machine) {
   } break;
   case OPCODE_RET: {
     if (machine->reg_sp < 2) {
-      fprintf(stderr, "Stack underflowed @ %04X\n", machine->pc - 4);
+      if (!machine->config_silent)
+        fprintf(stderr, "Stack underflowed @ %04X\n", machine->pc - 4);
       return false;
     }
     machine->reg_sp -= 2;
@@ -1140,7 +1159,8 @@ static inline bool machine_next(Machine *machine) {
 #define machine_next_PUSH(SIZE)                                                                                        \
   {                                                                                                                    \
     if (machine->reg_sp + SIZE - 1 >= PC_INIT) {                                                                       \
-      fprintf(stderr, "Stack overflowed @ %04X\n", machine->pc - 4);                                                   \
+      if (!machine->config_silent)                                                                                     \
+        fprintf(stderr, "Stack overflowed @ %04X\n", machine->pc - 4);                                                 \
       return false;                                                                                                    \
     }                                                                                                                  \
     memcpy(&machine->vmem[machine->reg_sp], machine_reg(machine, GET_OPERAND0(inst)), SIZE);                           \
@@ -1165,7 +1185,8 @@ static inline bool machine_next(Machine *machine) {
 #define machine_next_POP(TY, SIGNED_TY)                                                                                \
   {                                                                                                                    \
     if (machine->reg_sp < sizeof(TY)) {                                                                                \
-      fprintf(stderr, "Stack underflowed @ %04X\n", machine->pc - 4);                                                  \
+      if (!machine->config_silent)                                                                                     \
+        fprintf(stderr, "Stack underflowed @ %04X\n", machine->pc - 4);                                                \
       return false;                                                                                                    \
     }                                                                                                                  \
     machine->reg_sp -= sizeof(TY);                                                                                     \
@@ -1204,7 +1225,8 @@ static inline bool machine_next(Machine *machine) {
     }
   } break;
   default:
-    fprintf(stderr, "Illegal instruction @ 0x%04X (note: illegal opcode 0x%02X)\n", machine->pc - 4, inst[1]);
+    if (!machine->config_silent)
+      fprintf(stderr, "Illegal instruction @ 0x%04X (note: illegal opcode 0x%02X)\n", machine->pc - 4, inst[1]);
     return false;
   }
   return true;

@@ -37,7 +37,7 @@
 #define LIBC_fscanf     9
 #define LIBC_puts       10
 #define LIBC_fputs      11
-#define LIBC_snprintf   12    
+#define LIBC_snprintf   12
 #define LIBC_fopen      13
 #define LIBC_fclose     14
 #define LIBC_memcpy     15
