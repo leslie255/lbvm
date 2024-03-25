@@ -139,36 +139,41 @@ For this reason `store_dir` and `load_dir` are small instructions while the othe
 | `store_ind`   | 8      | Yes              | NZ              | Big            | `[addr][src][-][-][vmem][offset]` |
 | `mov`         | 9      | Yes              | NZ              | Small          | `[dest][src][-][-][-]`            |
 | `cmp`         | 10     | Yes              | NZCVEGL         | Small          | `[lhs][rhs][-][-][-]`             |
-| `csel`        | 11     | Yes              | -               | Small          | `[dest][lhs][rhs][-][cond]`       |
-| `b`           | 12     | No               | -               | Jump/Branch    | `[offset][cond]`                  |
-| `j`           | 13     | No               | -               | Jump/Branch    | `[offset][-]`                     |
-| `add`         | 14     | Yes              | NZCV            | Small          | `[dest][lhs][rhs][-][-]`          |
-| `sub`         | 15     | Yes              | NZCV            | Small          | `[dest][lhs][rhs][-][-]`          |
-| `mul`         | 16     | Yes              | NZV             | Small          | `[dest][lhs][rhs][-][-]`          |
-| `div`         | 17     | Yes              | NZ              | Small          | `[dest][lhs][rhs][-][-]`          |
-| `mod`         | 18     | Yes              | NZ              | Small          | `[dest][lhs][rhs][-][-]`          |
-| `iadd`        | 19     | Yes              | NZCV            | Small          | `[dest][lhs][rhs][-][-]`          |
-| `isub`        | 20     | Yes              | NZCV            | Small          | `[dest][lhs][rhs][-][-]`          |
-| `imul`        | 21     | Yes              | NZV             | Small          | `[dest][lhs][rhs][-][-]`          |
-| `idiv`        | 22     | Yes              | NZ              | Small          | `[dest][lhs][rhs][-][-]`          |
-| `imod`        | 23     | Yes              | NZ              | Small          | `[dest][lhs][rhs][-][-]`          |
-| `fadd`        | 24     | Only qword/dword | NZ              | Small          | `[dest][lhs][rhs][-][-]`          |
-| `fsub`        | 25     | Only qword/dword | NZ              | Small          | `[dest][lhs][rhs][-][-]`          |
-| `fmul`        | 26     | Only qword/dword | NZ              | Small          | `[dest][lhs][rhs][-][-]`          |
-| `fdiv`        | 27     | Only qword/dword | NZ              | Small          | `[dest][lhs][rhs][-][-]`          |
-| `fmod`        | 28     | Only qword/dword | NZ              | Small          | `[dest][lhs][rhs][-][-]`          |
-| `and`         | 29     | Yes              | NZ              | Small          | `[dest][lhs][rhs][-][-]`          |
-| `or`          | 30     | Yes              | NZ              | Small          | `[dest][lhs][rhs][-][-]`          |
-| `xor`         | 31     | Yes              | NZ              | Small          | `[dest][lhs][rhs][-][-]`          |
-| `not`         | 32     | Yes              | NZ              | Small          | `[dest][lhs][-][-][-]`            |
-| `muladd`      | 33     | Yes              | NZV             | Small          | `[dest][lhs][rhs][rhs2][-]`       |
-| `call`        | 34     | No               | -               | Jump/Branch    | `[offset][-]`                     |
-| `ccall`       | 35     | No               | -               | Jump/Branch    | `[offset][cond]`                  |
-| `ret`         | 36     | No               | -               | Small          | `[-][-][-][-][-]`                 |
-| `push`        | 37     | Yes              | -               | Small          | `[src][-][-][-][-]`               |
-| `pop`         | 38     | Yes              | NZ              | Small          | `[dest][-][-][-][-]`              |
-| `libc_call`   | 39     | No               | -               | Small          | `[-][-][-][-][libc_callcode]`     |
-| `native_call` | 40     | No               | -               | Big            | TODO                              |
+| `fcmp`        | 11     | Yes              | NZCVEGL         | Small          | `[lhs][rhs][-][-][-]`             |
+| `csel`        | 12     | Yes              | -               | Small          | `[dest][lhs][rhs][-][cond]`       |
+| `b`           | 13     | No               | -               | Jump/Branch    | `[offset][cond]`                  |
+| `j`           | 14     | No               | -               | Jump/Branch    | `[offset][-]`                     |
+| `add`         | 15     | Yes              | NZCV            | Small          | `[dest][lhs][rhs][-][-]`          |
+| `sub`         | 16     | Yes              | NZCV            | Small          | `[dest][lhs][rhs][-][-]`          |
+| `mul`         | 17     | Yes              | NZV             | Small          | `[dest][lhs][rhs][-][-]`          |
+| `div`         | 18     | Yes              | NZ              | Small          | `[dest][lhs][rhs][-][-]`          |
+| `mod`         | 19     | Yes              | NZ              | Small          | `[dest][lhs][rhs][-][-]`          |
+| `iadd`        | 20     | Yes              | NZCV            | Small          | `[dest][lhs][rhs][-][-]`          |
+| `isub`        | 21     | Yes              | NZCV            | Small          | `[dest][lhs][rhs][-][-]`          |
+| `imul`        | 22     | Yes              | NZV             | Small          | `[dest][lhs][rhs][-][-]`          |
+| `idiv`        | 23     | Yes              | NZ              | Small          | `[dest][lhs][rhs][-][-]`          |
+| `imod`        | 24     | Yes              | NZ              | Small          | `[dest][lhs][rhs][-][-]`          |
+| `fadd`        | 25     | Only qword/dword | NZ              | Small          | `[dest][lhs][rhs][-][-]`          |
+| `fsub`        | 26     | Only qword/dword | NZ              | Small          | `[dest][lhs][rhs][-][-]`          |
+| `fmul`        | 27     | Only qword/dword | NZ              | Small          | `[dest][lhs][rhs][-][-]`          |
+| `fdiv`        | 28     | Only qword/dword | NZ              | Small          | `[dest][lhs][rhs][-][-]`          |
+| `fmod`        | 29     | Only qword/dword | NZ              | Small          | `[dest][lhs][rhs][-][-]`          |
+| `ineg`        | 30     | Only qword/dword | NZ              | Small          | `[dest][lhs][-][-][-]`            |
+| `fneg`        | 31     | Only qword/dword | NZ              | Small          | `[dest][lhs][-][-][-]`            |
+| `shl`         | 32     | Only qword/dword | NZ              | Small          | `[dest][lhs][rhs][-][-]`          |
+| `shr`         | 33     | Only qword/dword | NZ              | Small          | `[dest][lhs][rhs][-][-]`          |
+| `and`         | 34     | Yes              | NZ              | Small          | `[dest][lhs][rhs][-][-]`          |
+| `or`          | 35     | Yes              | NZ              | Small          | `[dest][lhs][rhs][-][-]`          |
+| `xor`         | 36     | Yes              | NZ              | Small          | `[dest][lhs][rhs][-][-]`          |
+| `not`         | 37     | Yes              | NZ              | Small          | `[dest][lhs][-][-][-]`            |
+| `muladd`      | 38     | Yes              | NZV             | Small          | `[dest][lhs][rhs][rhs2][-]`       |
+| `call`        | 39     | No               | -               | Jump/Branch    | `[offset][-]`                     |
+| `ccall`       | 40     | No               | -               | Jump/Branch    | `[offset][cond]`                  |
+| `ret`         | 41     | No               | -               | Small          | `[-][-][-][-][-]`                 |
+| `push`        | 42     | Yes              | -               | Small          | `[src][-][-][-][-]`               |
+| `pop`         | 43     | Yes              | NZ              | Small          | `[dest][-][-][-][-]`              |
+| `libc_call`   | 44     | No               | -               | Small          | `[-][-][-][-][libc_callcode]`     |
+| `native_call` | 45     | No               | -               | Big            | TODO                              |
 | `breakpoint`  | 63     | No               | -               | Small          | `[-][-][-][-][-]`                 |
 
 Note that because all registers are callee-saved, value of status register might change after `call`, `ccall`, `libc_call`, `native_call`, even though the instruction itself does not touch the status register.

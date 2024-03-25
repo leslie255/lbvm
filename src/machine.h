@@ -348,7 +348,7 @@ static inline bool machine_libc_call(Machine *machine, u8 callcode) {
   case LIBC_bzero: {
     void *arg0 = (*(void **)&(machine->reg_0));
     size_t arg1 = (*(size_t *)&(machine->reg_1));
-    machine->reg_0 = (u64)bzero(arg0, arg1);
+    bzero(arg0, arg1);
   } break;
   case LIBC_strlen: {
     const char *arg0 = (*(const char **)&(machine->reg_0));
@@ -487,6 +487,17 @@ static inline bool machine_next(Machine *machine) {
     machine->reg_status.flag_g = lhs > rhs;
     machine->reg_status.flag_l = lhs < rhs;
   } break;
+  case OPCODE_FCMP: {
+    machine->reg_status.numeric = 0;
+    u64 lhs_ = mask_val(*machine_reg(machine, GET_OPERAND0(inst)), oplen);
+    u64 rhs_ = mask_val(*machine_reg(machine, GET_OPERAND1(inst)), oplen);
+    f64 lhs = TRANSMUTE(f64, lhs_);
+    f64 rhs = TRANSMUTE(f64, rhs_);
+    machine->reg_status.flag_z = lhs == 0;
+    machine->reg_status.flag_e = lhs == rhs;
+    machine->reg_status.flag_g = lhs > rhs;
+    machine->reg_status.flag_l = lhs < rhs;
+  } break;
   case OPCODE_CSEL: {
     u8 cond_flag = GET_FLAGS(inst);
     u8 rev = cond_flag & 0b10000000;
@@ -533,13 +544,13 @@ static inline bool machine_next(Machine *machine) {
       ADD_WITH_TY(u64, i64);
     } break;
     case OPLEN_4: {
-      ADD_WITH_TY(u32, i64);
+      ADD_WITH_TY(u32, i32);
     } break;
     case OPLEN_2: {
-      ADD_WITH_TY(u16, i64);
+      ADD_WITH_TY(u16, i16);
     } break;
     case OPLEN_1: {
-      ADD_WITH_TY(u8, i64);
+      ADD_WITH_TY(u8, i8);
     } break;
     default:
       PANIC();
@@ -678,13 +689,13 @@ static inline bool machine_next(Machine *machine) {
       MOD_WITH_TY(u64, i64);
     } break;
     case OPLEN_4: {
-      MOD_WITH_TY(u32, i64);
+      MOD_WITH_TY(u32, i32);
     } break;
     case OPLEN_2: {
-      MOD_WITH_TY(u16, i64);
+      MOD_WITH_TY(u16, i16);
     } break;
     case OPLEN_1: {
-      MOD_WITH_TY(u8, i64);
+      MOD_WITH_TY(u8, i8);
     } break;
     default:
       PANIC();
@@ -1039,6 +1050,101 @@ static inline bool machine_next(Machine *machine) {
     } break;
     default:
       PANIC();
+    }
+    *dest = result;
+  } break;
+  case OPCODE_INEG: {
+#define machin_next_INEG(TY)                                                                                           \
+  {                                                                                                                    \
+    TY *dest = (TY *)machine_reg(machine, GET_OPERAND0(inst));                                                         \
+    TY lhs = (TY)*machine_reg(machine, GET_OPERAND1(inst));                                                            \
+    *dest = -lhs;                                                                                                      \
+    machine->reg_status.flag_n = (-lhs) < 0;                                                                           \
+    machine->reg_status.flag_n = lhs == 0;                                                                             \
+  }
+    switch (oplen) {
+    case OPLEN_8: {
+      machin_next_INEG(i64);
+    } break;
+    case OPLEN_4: {
+      machin_next_INEG(i32);
+    } break;
+    case OPLEN_2: {
+      machin_next_INEG(i16);
+    } break;
+    case OPLEN_1: {
+      machin_next_INEG(i8);
+    } break;
+    }
+  } break;
+  case OPCODE_FNEG: {
+#define machin_next_FNEG(TY)                                                                                           \
+  {                                                                                                                    \
+    TY *dest = (TY *)machine_reg(machine, GET_OPERAND0(inst));                                                         \
+    TY lhs = *(TY *)machine_reg(machine, GET_OPERAND1(inst));                                                          \
+    *dest = -lhs;                                                                                                      \
+    machine->reg_status.flag_n = (-lhs) < 0;                                                                           \
+    machine->reg_status.flag_n = lhs == 0;                                                                             \
+  }
+    switch (oplen) {
+    case OPLEN_8: {
+      machin_next_FNEG(f64);
+    } break;
+    case OPLEN_4: {
+      machin_next_FNEG(f32);
+    } break;
+    case OPLEN_2:
+    case OPLEN_1: {
+      if (!machine->config_silent)
+        fprintf(stderr, "Illegal instruction @ 0x%04X (note: floating point operations must only be qword or dword)\n",
+                machine->pc - 4);
+      return false;
+    } break;
+    }
+  } break;
+  case OPCODE_SHL: {
+    u64 *dest = machine_reg(machine, GET_OPERAND0(inst));
+    u64 lhs = *machine_reg(machine, GET_OPERAND1(inst));
+    u64 rhs = *machine_reg(machine, GET_OPERAND2(inst));
+    u64 result;
+    switch (oplen) {
+    case OPLEN_8: {
+      result = lhs << (rhs % 64);
+    } break;
+    case OPLEN_4: {
+      result = (lhs << (rhs % 32)) & 0x10000000FFFFFFFF;
+    } break;
+    case OPLEN_2: {
+      result = (lhs << (rhs % 16)) & 0x000000000000FFFF;
+    } break;
+    case OPLEN_1: {
+      result = (lhs << (rhs % 8)) & 0x00000000000000FF;
+    } break;
+    default:
+      PANIC_PRINT("Invalid oplen 0x%02X\n", oplen);
+    }
+    *dest = result;
+  } break;
+  case OPCODE_SHR: {
+    u64 *dest = machine_reg(machine, GET_OPERAND0(inst));
+    u64 lhs = *machine_reg(machine, GET_OPERAND1(inst));
+    u64 rhs = *machine_reg(machine, GET_OPERAND2(inst));
+    u64 result;
+    switch (oplen) {
+    case OPLEN_8: {
+      result = lhs >> (rhs % 64);
+    } break;
+    case OPLEN_4: {
+      result = (lhs >> (rhs % 32)) & 0x10000000FFFFFFFF;
+    } break;
+    case OPLEN_2: {
+      result = (lhs >> (rhs % 16)) & 0x000000000000FFFF;
+    } break;
+    case OPLEN_1: {
+      result = (lhs >> (rhs % 8)) & 0x00000000000000FF;
+    } break;
+    default:
+      PANIC_PRINT("Invalid oplen 0x%02X\n", oplen);
     }
     *dest = result;
   } break;

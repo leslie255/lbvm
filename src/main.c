@@ -81,8 +81,10 @@ i32 main() {
   f64 radius = 2.2;
   f64 pi = 3.14159265358979323846264338327950288;
 
-  static const u8 code[] =
-  {36,161,0,0,124,0,0,0,100,2,1,0,96,13,1,0,44,25,2,129,104,192,12,0,104,0,11,0,104,0,9,0,0,0,0,0,};
+  static const u8 code[] = {
+      36, 161, 0,   0,   124, 0, 0,   0, 100, 2, 1,   0, 96, 13, 1, 0, 44, 25,
+      2,  129, 104, 192, 12,  0, 104, 0, 11,  0, 104, 0, 9,  0,  0, 0, 0,  0,
+  };
 
   u8 memory[VMEM_SIZE] = {0};
   memcpy(&memory[PC_INIT], code, sizeof(code));
@@ -91,9 +93,9 @@ i32 main() {
   machine.breakpoint_callback = &breakpoint_callback;
   machine.vmem = memory;
   machine.pc = PC_INIT;
-  machine.reg_10 = TRANSMUTE(u64, height);
-  machine.reg_11 = TRANSMUTE(u64, pi);
-  machine.reg_12 = TRANSMUTE(u64, radius);
+  machine.reg_10 = (*(u64 *)&(height));
+  machine.reg_11 = (*(u64 *)&(pi));
+  machine.reg_12 = (*(u64 *)&(radius));
   while (machine_next(&machine))
     ;
   breakpoint_callback(&machine);
