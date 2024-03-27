@@ -159,7 +159,7 @@ For this reason `store_dir` and `load_dir` are small instructions while the othe
 | `fdiv`        | 28     | Only qword/dword | NZ              | Small          | `[dest][lhs][rhs][-][-]`          |
 | `fmod`        | 29     | Only qword/dword | NZ              | Small          | `[dest][lhs][rhs][-][-]`          |
 | `ineg`        | 30     | Yes              | NZ              | Small          | `[dest][lhs][-][-][-]`            |
-| `fneg`        | 31     | No               | NZ              | Small          | `[dest][lhs][-][-][-]`            |
+| `fneg`        | 31     | Only qword/dword | NZ              | Small          | `[dest][lhs][-][-][-]`            |
 | `shl`         | 32     | No               | NZ              | Small          | `[dest][lhs][rhs][-][-]`          |
 | `shr`         | 33     | No               | NZ              | Small          | `[dest][lhs][rhs][-][-]`          |
 | `and`         | 34     | Yes              | NZ              | Small          | `[dest][lhs][rhs][-][-]`          |
