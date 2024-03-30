@@ -109,7 +109,7 @@ static inline u64 machine_fetch_data_qword(Machine *machine) {
   return value;
 }
 
-static inline bool machine_jump_offset(Machine *machine, u16 offset) {
+static inline bool machine_jump_offset(Machine *machine, i8 offset) {
   MACHINE_CHECK_PC_OVERFLOW(machine, offset);
   machine->pc += offset;
   return true;
@@ -182,7 +182,7 @@ static inline u64 mask_val_and_set_flag_n(Machine *machine, u64 value, u8 oplen)
 #define GET_OPERAND2(INST) ((INST)[2] & 0b00001111)
 #define GET_OPERAND3(INST) (((INST)[2] & 0b11110000) >> 4)
 #define GET_FLAGS(INST) ((INST)[3])
-#define GET_JUMP_OFFSET(INST) (((u16)((INST)[1])) | (u16)((INST)[2] << 8))
+#define GET_JUMP_OFFSET(INST) (((i8)((INST)[1])) | (i8)((INST)[2] << 8))
 
 static inline bool machine_libc_call(Machine *machine, u8 callcode) {
   switch (callcode) {
