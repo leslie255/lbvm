@@ -414,9 +414,9 @@ static inline bool machine_next(Machine *machine) {
     *dest_reg = imm_masked;
   } break;
   case OPCODE_LOAD_DIR: {
+    u64 addr = *machine_reg(machine, GET_OPERAND1(inst));
     machine->reg_status.numeric = 0;
     u64 *dest_reg = machine_reg(machine, GET_OPERAND0(inst));
-    u64 addr = *machine_reg(machine, GET_OPERAND1(inst));
     void *src = solve_addr(machine, GET_FLAGS(inst) & 0b00000001, addr);
     TRY_NULL(src);
     *dest_reg = 0;
@@ -425,10 +425,10 @@ static inline bool machine_next(Machine *machine) {
     machine->reg_status.flag_z = src == 0;
   } break;
   case OPCODE_LOAD_IND: {
+    u64 src_addr_base = *machine_reg(machine, GET_OPERAND1(inst));
     machine->reg_status.numeric = 0;
     MACHINE_CHECK_PC_OVERFLOW(machine, 8);
     u64 src_addr_offset = machine_fetch_data_qword(machine);
-    u64 src_addr_base = *machine_reg(machine, GET_OPERAND1(inst));
     u64 src_addr = src_addr_base + src_addr_offset;
     void *src = solve_addr(machine, GET_FLAGS(inst) & 0b00000001, src_addr);
     TRY_NULL(src);
@@ -450,47 +450,50 @@ static inline bool machine_next(Machine *machine) {
     machine->reg_status.flag_z = src == 0;
   } break;
   case OPCODE_STORE_DIR: {
+    u64 src_ = *machine_reg(machine, GET_OPERAND0(inst));
     machine->reg_status.numeric = 0;
     u64 dest_addr = *machine_reg(machine, GET_OPERAND1(inst));
     void *dest = solve_addr(machine, GET_FLAGS(inst) & 0b00000001, dest_addr);
     TRY_NULL(dest);
-    u64 src = mask_val_and_set_flag_n(machine, *machine_reg(machine, GET_OPERAND0(inst)), oplen);
+    u64 src = mask_val_and_set_flag_n(machine, src_, oplen);
     memcpy(dest, &src, oplen_to_size(oplen));
     mask_val_and_set_flag_n(machine, src, oplen);
     machine->reg_status.flag_z = src == 0;
   } break;
   case OPCODE_STORE_IND: {
-    machine->reg_status.numeric = 0;
     u64 dest_addr_base = *machine_reg(machine, GET_OPERAND0(inst));
+    u64 src_ = *machine_reg(machine, GET_OPERAND0(inst));
+    machine->reg_status.numeric = 0;
     MACHINE_CHECK_PC_OVERFLOW(machine, 8);
     u64 dest_addr_offset = machine_fetch_data_qword(machine);
     u64 dest_addr = dest_addr_base + dest_addr_offset;
     void *dest = solve_addr(machine, GET_FLAGS(inst) & 0b00000001, dest_addr);
     TRY_NULL(dest);
-    u64 src = mask_val_and_set_flag_n(machine, *machine_reg(machine, GET_OPERAND0(inst)), oplen);
+    u64 src = mask_val_and_set_flag_n(machine, src_, oplen);
     memcpy(dest, &src, oplen_to_size(oplen));
     mask_val_and_set_flag_n(machine, src, oplen);
     machine->reg_status.flag_z = src == 0;
   } break;
   case OPCODE_MOV: {
+    u64 src_ = *machine_reg(machine, GET_OPERAND1(inst));
     machine->reg_status.numeric = 0;
+    u64 src = mask_val_and_set_flag_n(machine, src_, oplen);
     u64 *dest_reg = machine_reg(machine, GET_OPERAND0(inst));
-    u64 src = mask_val_and_set_flag_n(machine, *machine_reg(machine, GET_OPERAND1(inst)), oplen);
     *dest_reg = src;
   } break;
   case OPCODE_CMP: {
-    machine->reg_status.numeric = 0;
     u64 lhs = mask_val(*machine_reg(machine, GET_OPERAND0(inst)), oplen);
     u64 rhs = mask_val(*machine_reg(machine, GET_OPERAND1(inst)), oplen);
+    machine->reg_status.numeric = 0;
     machine->reg_status.flag_z = lhs == 0;
     machine->reg_status.flag_e = lhs == rhs;
     machine->reg_status.flag_g = lhs > rhs;
     machine->reg_status.flag_l = lhs < rhs;
   } break;
   case OPCODE_FCMP: {
-    machine->reg_status.numeric = 0;
     u64 lhs_ = mask_val(*machine_reg(machine, GET_OPERAND0(inst)), oplen);
     u64 rhs_ = mask_val(*machine_reg(machine, GET_OPERAND1(inst)), oplen);
+    machine->reg_status.numeric = 0;
     f64 lhs = TRANSMUTE(f64, lhs_);
     f64 rhs = TRANSMUTE(f64, rhs_);
     machine->reg_status.flag_z = lhs == 0;
