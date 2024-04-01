@@ -1,7 +1,7 @@
 #pragma once
 
-#define VMEM_SIZE 65536 // 64 kB
-#define PC_INIT 32768
+#define VMEM_TOTAL_SIZE 0x30000
+#define VMEM_SEG_SIZE 0x10000
 
 #define OPLEN_8 0b00000000
 #define OPLEN_4 0b00000001

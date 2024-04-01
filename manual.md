@@ -98,11 +98,24 @@ The 7 least significant bits can be masked together for boolean OR logic, while 
 
 For example, the byte `0b10110000` (`0b10000000 & G & E`) encodes the condition of `!(greater | equal)`.
 
+The status register can be directly addressed to using its encoding of `15`,
+but it may only be used as the source (`src`) register,
+not the destination (`dest`) register.
+
 ## Memory
 
-LBVM has a virtual memory `vmem` of 64kB. Memory of the host machine can also be accessed, although restrictions may be applied by the emulator for debug reasons.
+LBVM has a virtual memory `vmem` of 192kB, with 3 segments of 64kB.
 
-The load/store instructions takes in a `vmem` flag that determines whether the virtual or the host memory is accessed (`0` for vmem, `1` for real memory).
+The first segment (`vmem` address 0 ~ 0xFFFF) is used as the stack.
+The second segment (`vmem` address 0x10000 ~ 0x1FFFF) is used as the text segment.
+The third segment (`vmem` address 0x20000 ~ 0x2FFFF) is used as the data segment.
+
+Their is no way for the machine to execute code outside of the text segment.
+
+Memory of the host machine can also be accessed, depending on the `vmem` flag.
+
+The load/store instructions takes in a `vmem` flag as the least significan bit in their `flags` byte.
+The `vmem` flag determines whether the virtual or the host memory is accessed (`0` for vmem, `1` for real memory).
 
 Pointers have sizes of 64 bits.
 
@@ -132,7 +145,7 @@ For this reason `store_dir` and `load_dir` are small instructions while the othe
 | `cbrk`        | 1      | No               | -               | Small          | `[-][-][-][-][cond]`              |
 | `nop`         | 2      | No               | -               | Small          | `[-][-][-][-][-]`                 |
 | `load_imm`    | 3      | Yes              | NZ              | Big            | `[dest][-][-][vmem][data]`        |
-| `load_dir`    | 4      | Yes              | NZ              | Big            | `[dest][addr][vmem][-]`           |
+| `load_dir`    | 4      | Yes              | NZ              | Small          | `[dest][addr][vmem][-]`           |
 | `load_ind`    | 5      | Yes              | NZ              | Big            | `[dest][addr][-][vmem][offset]`   |
 | `store_imm`   | 6      | Yes              | NZ              | Big            | `[-][src][-][-][vmem][addr]`      |
 | `store_dir`   | 7      | Yes              | NZ              | Small          | `[addr][src][-][-][vmem]`         |

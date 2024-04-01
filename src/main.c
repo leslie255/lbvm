@@ -139,7 +139,7 @@ void breakpoint_callback(Machine *machine) {
   printf("sp:\t0x%016llX (%llu)\n", machine->reg_sp, machine->reg_sp);
   for (size_t i = 0; i < 8; i++) {
     for (size_t j = 0; j < 8; j++) {
-      printf("%02X ", machine->vmem[i * 8 + j]);
+      printf("%02X ", machine->vmem_stack[i * 8 + j]);
     }
     printf("\n");
   }
@@ -149,30 +149,39 @@ void breakpoint_callback(Machine *machine) {
 i32 main() {
   lbvm_check_platform_compatibility();
 
+  static const char vowel[] = "Vowel";
+  static const char not_vowel[] = "Not vowel";
   static const char my_email[] = "zili.luo@student.manchester.ac.uk";
+
   int n;
   printf("Enter an integer: ");
   scanf("%d", &n);
 
   static const u8 code[] = {
-      60, 208, 12, 0, 19, 0,   0, 1, 15,  4,   0, 0, 16,  0,  0, 0, 0,  0, 0, 0, 15,  3, 0, 0, 97, 0, 0, 0,
-      0,  0,   0,  0, 43, 48,  0, 0, 39,  225, 0, 0, 139, 17, 4, 0, 15, 3, 0, 0, 101, 0, 0, 0, 0,  0, 0, 0,
-      43, 48,  0,  0, 39, 226, 0, 0, 139, 34,  4, 0, 143, 17, 2, 0, 15, 3, 0, 0, 105, 0, 0, 0, 0,  0, 0, 0,
-      43, 48,  0,  0, 39, 226, 0, 0, 139, 34,  4, 0, 143, 17, 2, 0, 15, 3, 0, 0, 111, 0, 0, 0, 0,  0, 0, 0,
-      43, 48,  0,  0, 39, 226, 0, 0, 139, 34,  4, 0, 143, 17, 2, 0, 15, 3, 0, 0, 117, 0, 0, 0, 0,  0, 0, 0,
-      43, 48,  0,  0, 39, 226, 0, 0, 139, 34,  4, 0, 143, 17, 2, 0, 0,  0, 0, 0,
+      60, 208, 12,  0,  19,  0, 0,  1,   15, 4,  0,  0,   16,  0,  0,   0,   0,  0,   0,   0,  15,  3,   0,  0,   97,
+      0,  0,   0,   0,  0,   0, 0,  43,  48, 0,  0,  39,  225, 0,  0,   139, 17, 4,   0,   15, 3,   0,   0,  101, 0,
+      0,  0,   0,   0,  0,   0, 43, 48,  0,  0,  39, 226, 0,   0,  139, 34,  4,  0,   143, 17, 2,   0,   15, 3,   0,
+      0,  105, 0,   0,  0,   0, 0,  0,   0,  43, 48, 0,   0,   39, 226, 0,   0,  139, 34,  4,  0,   143, 17, 2,   0,
+      15, 3,   0,   0,  111, 0, 0,  0,   0,  0,  0,  0,   43,  48, 0,   0,   39, 226, 0,   0,  139, 34,  4,  0,   143,
+      17, 2,   0,   15, 3,   0, 0,  117, 0,  0,  0,  0,   0,   0,  0,   43,  48, 0,   0,   39, 226, 0,   0,  139, 34,
+      4,  0,   143, 17, 2,   0, 43, 17,  0,  0,  48, 144, 10,  2,  176, 0,   0,  6,   0,   0,  0,   0,
   };
 
-  u8 memory[VMEM_SIZE] = {0};
-  memcpy(&memory[PC_INIT], code, sizeof(code));
+  u8 vmem_text[VMEM_SEG_SIZE] = {0};
+  u8 vmem_data[VMEM_SEG_SIZE] = {0};
+  u8 vmem_stack[VMEM_SEG_SIZE] = {0};
+  memcpy(vmem_text, code, sizeof(code));
   Machine machine = {0};
+  machine.config_silent = true;
   machine.breakpoint_callback = &breakpoint_callback;
-  machine.vmem = memory;
-  machine.pc = PC_INIT;
+  machine.vmem_stack = vmem_stack;
+  machine.vmem_text = vmem_text;
+  machine.vmem_data = vmem_data;
   machine.reg_13 = (u64)&my_email[0];
   machine.reg_12 = (u64)n;
   machine.reg_11 = (u64)sizeof(my_email);
+  machine.reg_10 = (u64)&vowel[0];
+  machine.reg_9 = (u64)&not_vowel[0];
   while (machine_next(&machine))
     ;
-  breakpoint_callback(&machine);
 }

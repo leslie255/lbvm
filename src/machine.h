@@ -49,7 +49,9 @@ struct machine {
   u64 reg_12;
   u64 reg_13;
   u64 reg_sp;
-  u8 *vmem;
+  u8 *vmem_stack;
+  u8 *vmem_text;
+  u8 *vmem_data;
   void *breakpoint_callback_context;
   breakpoint_callback_t breakpoint_callback;
 };
@@ -94,7 +96,7 @@ static inline u64 *machine_reg(Machine *machine, u8 reg_code) {
 }
 
 #define MACHINE_CHECK_PC_OVERFLOW(MACHINE, LEN)                                                                        \
-  if (MACHINE->pc + LEN > VMEM_SIZE) {                                                                                 \
+  if (MACHINE->pc + LEN > VMEM_SEG_SIZE) {                                                                             \
     if (!MACHINE->config_silent)                                                                                       \
       fprintf(stderr, "PC overflowed\n");                                                                              \
     return false;                                                                                                      \
@@ -104,7 +106,7 @@ static inline u64 *machine_reg(Machine *machine, u8 reg_code) {
 /// Make sure to do `MACHINE_CHECK_PC_OVERFLOW(machine, 8)` before this!
 static inline u64 machine_fetch_data_qword(Machine *machine) {
   u64 value;
-  memcpy(&value, &machine->vmem[machine->pc], 8);
+  memcpy(&value, &machine->vmem_text[machine->pc], 8);
   machine->pc += 8;
   return value;
 }
@@ -134,12 +136,21 @@ static inline void *solve_addr(Machine *machine, u8 vmem_flag, u64 addr) {
   if (vmem_flag) {
     return (void *)addr;
   } else {
-    if (addr > VMEM_SIZE) {
+    switch (addr & 0xF0000) {
+    case 0x00000: {
+      return &machine->vmem_stack[addr & 0xFFFF];
+    } break;
+    case 0x10000: {
+      return &machine->vmem_text[addr & 0xFFFF];
+    } break;
+    case 0x20000: {
+      return &machine->vmem_data[addr & 0xFFFF];
+    } break;
+    default:
       if (!machine->config_silent)
         fprintf(stderr, "Out of bound stack access @ 0x%04X\n", machine->pc - 4);
       return NULL;
     }
-    return &machine->vmem[addr];
   }
 }
 
@@ -377,10 +388,10 @@ static inline bool machine_libc_call(Machine *machine, u8 callcode) {
 static inline bool machine_next(Machine *machine) {
   MACHINE_CHECK_PC_OVERFLOW(machine, 4);
   const u8 inst[4] = {
-      machine->vmem[machine->pc + 0],
-      machine->vmem[machine->pc + 1],
-      machine->vmem[machine->pc + 2],
-      machine->vmem[machine->pc + 3],
+      machine->vmem_text[machine->pc + 0],
+      machine->vmem_text[machine->pc + 1],
+      machine->vmem_text[machine->pc + 2],
+      machine->vmem_text[machine->pc + 3],
   };
   machine->pc += 4;
   const u8 opcode = inst[0] & 0b11111100;
@@ -1230,12 +1241,12 @@ static inline bool machine_next(Machine *machine) {
 
   } break;
   case OPCODE_CALL: {
-    if (machine->reg_sp + 1 >= PC_INIT) {
+    if (machine->reg_sp + 1 >= VMEM_SEG_SIZE) {
       if (!machine->config_silent)
         fprintf(stderr, "Stack overflowed @ %04X\n", machine->pc - 4);
       return false;
     }
-    memcpy(&machine->vmem[machine->reg_sp], &machine->pc, 2);
+    memcpy(&machine->vmem_stack[machine->reg_sp], &machine->pc, 2);
     machine->reg_sp += 2;
     TRY_NULL(machine_jump_offset(machine, GET_JUMP_OFFSET(inst)));
   } break;
@@ -1246,12 +1257,12 @@ static inline bool machine_next(Machine *machine) {
     if (rev)
       cond = !cond;
     if (cond) {
-      if (machine->reg_sp + 1 >= PC_INIT) {
+      if (machine->reg_sp + 1 >= VMEM_SEG_SIZE) {
         if (!machine->config_silent)
           fprintf(stderr, "Stack overflowed @ %04X\n", machine->pc - 4);
         return false;
       }
-      memcpy(&machine->vmem[machine->reg_sp], &machine->pc, 2);
+      memcpy(&machine->vmem_stack[machine->reg_sp], &machine->pc, 2);
       machine->reg_sp += 2;
       TRY_NULL(machine_jump_offset(machine, GET_JUMP_OFFSET(inst)));
     }
@@ -1263,16 +1274,16 @@ static inline bool machine_next(Machine *machine) {
       return false;
     }
     machine->reg_sp -= 2;
-    memcpy(&machine->pc, &machine->vmem[machine->reg_sp], 2);
+    memcpy(&machine->pc, &machine->vmem_stack[machine->reg_sp], 2);
   } break;
 #define machine_next_PUSH(SIZE)                                                                                        \
   {                                                                                                                    \
-    if (machine->reg_sp + SIZE - 1 >= PC_INIT) {                                                                       \
+    if (machine->reg_sp + SIZE - 1 >= VMEM_SEG_SIZE) {                                                                 \
       if (!machine->config_silent)                                                                                     \
         fprintf(stderr, "Stack overflowed @ %04X\n", machine->pc - 4);                                                 \
       return false;                                                                                                    \
     }                                                                                                                  \
-    memcpy(&machine->vmem[machine->reg_sp], machine_reg(machine, GET_OPERAND0(inst)), SIZE);                           \
+    memcpy(&machine->vmem_stack[machine->reg_sp], machine_reg(machine, GET_OPERAND0(inst)), SIZE);                     \
     machine->reg_sp += SIZE;                                                                                           \
   }
   case OPCODE_PUSH + OPLEN_8: {
@@ -1300,7 +1311,7 @@ static inline bool machine_next(Machine *machine) {
     }                                                                                                                  \
     machine->reg_sp -= sizeof(TY);                                                                                     \
     TY value;                                                                                                          \
-    memcpy(&value, &machine->vmem[machine->reg_sp], sizeof(TY));                                                       \
+    memcpy(&value, &machine->vmem_stack[machine->reg_sp], sizeof(TY));                                                       \
     *machine_reg(machine, GET_OPERAND0(inst)) = value;                                                                 \
     machine->reg_status.numeric = 0;                                                                                   \
     machine->reg_status.flag_z = value == 0;                                                                           \
