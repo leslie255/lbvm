@@ -149,39 +149,147 @@ void breakpoint_callback(Machine *machine) {
 i32 main() {
   lbvm_check_platform_compatibility();
 
-  static const char vowel[] = "Vowel";
-  static const char not_vowel[] = "Not vowel";
-  static const char my_email[] = "zili.luo@student.manchester.ac.uk";
+  // segment data
+  // 	STR_VOWEL:
+  // 	bytes "Vowel\0"
+  //
+  // 	STR_NOT_VOWEL:
+  // 	bytes "Not vowel\0"
+  //
+  // 	STR_EMAIL:
+  // 	bytes "zili.luo@student.manchester.ac.uk\0"
+  //
+  // 	STR_ERROR:
+  // 	bytes "Error\0"
+  //
+  // 	STR_PROMPT:
+  // 	bytes "Enter an integer: \0"
+  //
+  // 	STR_FMT:
+  // 	bytes "%d\0"
+  //
+  // segment text
+  // 	; r0: c
+  // 	; r1: cond
+  // 	; r2: tmp cond
+  // 	; r3: tmp for compare
+  // 	; r4: tmp for masking status
+  // 	; r9: STR_NOT_VOWEL
+  // 	; r10: STR_VOWEL
+  // 	; r11: sizeof(STR_EMAIL)
+  // 	; r13: STR_EMAIL
+  //
+  // 	load_imm	q r0, 8
+  // 	add		q sp, sp, r0
+  //
+  // 	load_imm	q r0, STR_PROMPT
+  // 	vtoreal		r0, r0
+  // 	libc_call	printf
+  //
+  // 	load_imm	q r0, 0
+  // 	vtoreal		r1, r0
+  // 	load_imm	q r0, STR_FMT
+  // 	vtoreal		r0, r0
+  // 	libc_call	scanf
+  //
+  // 	load_imm	q r11, 33	; 33 == sizeof(STR_EMAIL)
+  // 	load_imm	q r13, STR_EMAIL
+  //
+  // 	; c = email[i]
+  // 	load_imm	q r12, 0
+  // 	load_dir	q r12, r12, vmem
+  // 	add		q r0, r13, r12
+  // 	load_dir	b r0, r0, vmem
+  //
+  // 	; check bound
+  // 	cmp		q r11, r12
+  // 	b		_out_of_bound_end, g
+  // 	load_imm	q r0, STR_ERROR
+  // 	vtoreal		r0, r0
+  // 	libc_call	printf
+  // 	load_imm	q r0, 1
+  // 	libc_call	exit
+  // 	_out_of_bound_end:
+  //
+  // 	load_imm	b r4, 0b00010000
+  //
+  // 	; cond = (c == 'a')
+  // 	load_imm	b r3, 'a'
+  // 	cmp		b r0, r3
+  // 	mov		b r1, status
+  // 	and		b r1, r1, r4
+  //
+  // 	; cond |= (c == 'e')
+  // 	load_imm	b r3, 'e'
+  // 	cmp		b r0, r3
+  // 	mov		b r2, status
+  // 	and		b r2, r2, r4
+  // 	or		b r1, r1, r2
+  //
+  // 	; cond |= (c == 'i')
+  // 	load_imm	b r3, 'i'
+  // 	cmp		b r0, r3
+  // 	mov		b r2, status
+  // 	and		b r2, r2, r4
+  // 	or		b r1, r1, r2
+  //
+  // 	; cond |= (c == 'o')
+  // 	load_imm	b r3, 'o'
+  // 	cmp		b r0, r3
+  // 	mov		b r2, status
+  // 	and		b r2, r2, r4
+  // 	or		b r1, r1, r2
+  //
+  // 	; cond |= (c == 'u')
+  // 	load_imm	b r3, 'u'
+  // 	cmp		b r0, r3
+  // 	mov		b r2, status
+  // 	and		b r2, r2, r4
+  // 	or		b r1, r1, r2
+  //
+  // 	load_imm	q r9, STR_NOT_VOWEL
+  // 	load_imm	q r10, STR_VOWEL
+  // 	cmp		b r1, r1
+  // 	csel		q r0, r9, r10, z
+  // 	vtoreal		r0, r0
+  // 	libc_call	printf
+  //
+  // 	brk
 
-  int n;
-  printf("Enter an integer: ");
-  scanf("%d", &n);
-
-  static const u8 code[] = {
-      60, 208, 12,  0,  19,  0, 0,  1,   15, 4,  0,  0,   16,  0,  0,   0,   0,  0,   0,   0,  15,  3,   0,  0,   97,
-      0,  0,   0,   0,  0,   0, 0,  43,  48, 0,  0,  39,  225, 0,  0,   139, 17, 4,   0,   15, 3,   0,   0,  101, 0,
-      0,  0,   0,   0,  0,   0, 43, 48,  0,  0,  39, 226, 0,   0,  139, 34,  4,  0,   143, 17, 2,   0,   15, 3,   0,
-      0,  105, 0,   0,  0,   0, 0,  0,   0,  43, 48, 0,   0,   39, 226, 0,   0,  139, 34,  4,  0,   143, 17, 2,   0,
-      15, 3,   0,   0,  111, 0, 0,  0,   0,  0,  0,  0,   43,  48, 0,   0,   39, 226, 0,   0,  139, 34,  4,  0,   143,
-      17, 2,   0,   15, 3,   0, 0,  117, 0,  0,  0,  0,   0,   0,  0,   43,  48, 0,   0,   39, 226, 0,   0,  139, 34,
-      4,  0,   143, 17, 2,   0, 43, 17,  0,  0,  48, 144, 10,  2,  176, 0,   0,  6,   0,   0,  0,   0,
+  static const u8 text_segment[] = {
+      12,  0,   0,  0, 8,   0,   0,  0, 0,   0,   0, 0, 60,  255, 0, 0,  12, 0,  0, 0, 56,  0,   2, 0,   0,   0,   0, 0,
+      184, 0,   0,  0, 176, 0,   0,  6, 12,  0,   0, 0, 0,   0,   0, 0,  0,  0,  0, 0, 184, 16,  0, 0,   12,  0,   0, 0,
+      75,  0,   2,  0, 0,   0,   0,  0, 184, 0,   0, 0, 176, 0,   0, 8,  12, 11, 0, 0, 33,  0,   0, 0,   0,   0,   0, 0,
+      12,  13,  0,  0, 16,  0,   2,  0, 0,   0,   0, 0, 12,  12,  0, 0,  0,  0,  0, 0, 0,   0,   0, 0,   16,  204, 0, 0,
+      60,  208, 12, 0, 19,  0,   0,  0, 40,  203, 0, 0, 52,  36,  0, 32, 12, 0,  0, 0, 50,  0,   2, 0,   0,   0,   0, 0,
+      184, 0,   0,  0, 176, 0,   0,  6, 12,  0,   0, 0, 1,   0,   0, 0,  0,  0,  0, 0, 176, 0,   0, 255, 15,  4,   0, 0,
+      16,  0,   0,  0, 0,   0,   0,  0, 15,  3,   0, 0, 97,  0,   0, 0,  0,  0,  0, 0, 43,  48,  0, 0,   39,  225, 0, 0,
+      139, 17,  4,  0, 15,  3,   0,  0, 101, 0,   0, 0, 0,   0,   0, 0,  43, 48, 0, 0, 39,  226, 0, 0,   139, 34,  4, 0,
+      143, 17,  2,  0, 15,  3,   0,  0, 105, 0,   0, 0, 0,   0,   0, 0,  43, 48, 0, 0, 39,  226, 0, 0,   139, 34,  4, 0,
+      143, 17,  2,  0, 15,  3,   0,  0, 111, 0,   0, 0, 0,   0,   0, 0,  43, 48, 0, 0, 39,  226, 0, 0,   139, 34,  4, 0,
+      143, 17,  2,  0, 15,  3,   0,  0, 117, 0,   0, 0, 0,   0,   0, 0,  43, 48, 0, 0, 39,  226, 0, 0,   139, 34,  4, 0,
+      143, 17,  2,  0, 12,  9,   0,  0, 6,   0,   2, 0, 0,   0,   0, 0,  12, 10, 0, 0, 0,   0,   2, 0,   0,   0,   0, 0,
+      43,  17,  0,  0, 48,  144, 10, 2, 184, 0,   0, 0, 176, 0,   0, 6,  0,  0,  0, 0,
   };
-
+  static const u8 data_segment[] = {
+      86,  111, 119, 101, 108, 0,   78,  111, 116, 32,  118, 111, 119, 101, 108, 0,   122, 105, 108, 105,
+      46,  108, 117, 111, 64,  115, 116, 117, 100, 101, 110, 116, 46,  109, 97,  110, 99,  104, 101, 115,
+      116, 101, 114, 46,  97,  99,  46,  117, 107, 0,   69,  114, 114, 111, 114, 0,   69,  110, 116, 101,
+      114, 32,  97,  110, 32,  105, 110, 116, 101, 103, 101, 114, 58,  32,  0,   37,  100, 0,
+  };
   u8 vmem_text[VMEM_SEG_SIZE] = {0};
   u8 vmem_data[VMEM_SEG_SIZE] = {0};
   u8 vmem_stack[VMEM_SEG_SIZE] = {0};
-  memcpy(vmem_text, code, sizeof(code));
+  memcpy(vmem_text, text_segment, sizeof(text_segment));
+  memcpy(vmem_data, data_segment, sizeof(data_segment));
+
   Machine machine = {0};
   machine.config_silent = true;
   machine.breakpoint_callback = &breakpoint_callback;
   machine.vmem_stack = vmem_stack;
   machine.vmem_text = vmem_text;
   machine.vmem_data = vmem_data;
-  machine.reg_13 = (u64)&my_email[0];
-  machine.reg_12 = (u64)n;
-  machine.reg_11 = (u64)sizeof(my_email);
-  machine.reg_10 = (u64)&vowel[0];
-  machine.reg_9 = (u64)&not_vowel[0];
   while (machine_next(&machine))
     ;
+  // breakpoint_callback(&machine);
 }

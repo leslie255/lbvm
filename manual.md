@@ -89,7 +89,7 @@ LBVM has 7 status flags, stored in the 7 least significant bits of the status re
 | `G`          | **G**reater   | `0b00100000`      |
 | `L`          | **L**ess-than | `0b01000000`      |
 
-Despite of that, the status register is 64 bits, for convenience sake.
+Despite of this, the status register is 64 bits for convenience sake.
 
 Any instruction that sets a status flag clears all other irrelevant bits to zero.
 
@@ -98,9 +98,9 @@ The 7 least significant bits can be masked together for boolean OR logic, while 
 
 For example, the byte `0b10110000` (`0b10000000 & G & E`) encodes the condition of `!(greater | equal)`.
 
-The status register can be directly addressed to using its encoding of `15`,
-but it may only be used as the source (`src`) register,
-not the destination (`dest`) register.
+The status register can be directly addressed to using its encoding of `15` in similar fashion to other registers.
+But upon using status-affecting instructions to change the status register (e.g. `load_imm` a value into status register),
+the status register would be immediately overwrote within the same instruction.
 
 ## Memory
 
@@ -187,6 +187,7 @@ For this reason `store_dir` and `load_dir` are small instructions while the othe
 | `pop`         | 43     | Yes              | NZ              | Small          | `[dest][-][-][-][-]`              |
 | `libc_call`   | 44     | No               | -               | Small          | `[-][-][-][-][libc_callcode]`     |
 | `native_call` | 45     | No               | -               | Big            | TODO                              |
+| `vtoreal`     | 46     | No               | -               | Big            | `[dest][src]`                     |
 | `breakpoint`  | 63     | No               | -               | Small          | `[-][-][-][-][-]`                 |
 
 Note that because all registers are callee-saved, value of status register might change after `call`, `ccall`, `libc_call`, `native_call`, even though the instruction itself does not touch the status register.
@@ -220,3 +221,4 @@ LBVM uses a 8-bit callcode for calling libc functions. It does not cover all the
 | `strcpy`   | 20       |
 | `strcat`   | 21       |
 | `strcmp`   | 22       |
+| `strcmp`   | 23       |
