@@ -1,0 +1,3 @@
+[submodule "lbvm_asm"]
+	path = lbvm_asm
+	url = https://github.com/leslie255/lbvm_asm

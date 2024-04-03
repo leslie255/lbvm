@@ -3,6 +3,7 @@
 #include "common.h"
 #include "debug_utils.h"
 #include "values.h"
+#include <stdlib.h>
 
 static inline void lbvm_check_platform_compatibility() {
   if (sizeof(void *) != 8) {
@@ -23,7 +24,7 @@ struct machine {
   bool config_silent;
   union machine_status_reg {
     u64 numeric;
-    struct {
+    struct __attribute__((packed)) {
       bool flag_n : 1;
       bool flag_z : 1;
       bool flag_c : 1;
@@ -52,9 +53,29 @@ struct machine {
   u8 *restrict vmem_stack;
   u8 *restrict vmem_text;
   u8 *restrict vmem_data;
-  void *breakpoint_callback_context;
+  void *breakpoint_callback_cx;
   breakpoint_callback_t breakpoint_callback;
 };
+
+#define MACHINE_SILENT 1
+#define MACHINE_NOT_SILENT 0
+
+Machine machine_new(bool config_silent, breakpoint_callback_t breakpoint_callback, void *breakpoint_callback_cx) {
+  Machine machine = {0};
+  machine.vmem_text = malloc(VMEM_SEG_SIZE);
+  machine.vmem_data = malloc(VMEM_SEG_SIZE);
+  machine.vmem_stack = malloc(VMEM_SEG_SIZE);
+  machine.config_silent = config_silent;
+  machine.breakpoint_callback = breakpoint_callback;
+  machine.breakpoint_callback_cx = breakpoint_callback_cx;
+  return machine;
+}
+
+void machine_load_program(Machine *machine, const u8 *text_segment, usize text_segment_size, const u8 *data_segment,
+                          usize data_segment_size) {
+  memcpy(machine->vmem_text, text_segment, text_segment_size);
+  memcpy(machine->vmem_data, data_segment, data_segment_size);
+}
 
 static inline u64 *machine_reg(Machine *machine, u8 reg_code) {
   switch (reg_code) {
@@ -201,6 +222,8 @@ static inline bool machine_libc_call(Machine *machine, u8 callcode) {
     u8 arg0 = (*(u8 *)&(machine->reg_0));
     if (!machine->config_silent)
       printf("Machine called libc function `exit` with code %u", arg0);
+    else
+      exit(arg0);
     return false;
   } break;
   case LIBC_malloc: {

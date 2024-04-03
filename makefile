@@ -8,7 +8,7 @@ all: bin/main.o bin/lbvm
 clean:
 	rm -rf bin/*
 
-bin/main.o: src/main.c src/common.h src/values.h src/machine.h src/debug_utils.h
+bin/main.o: src/main.c src/common.h src/values.h src/machine.h src/debug_utils.h code.h
 	$(CC) $(CFLAGS) $(OPT_LEVEL) -c src/main.c -o bin/main.o
 
 bin/lbvm: bin/main.o
