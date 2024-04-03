@@ -111,12 +111,20 @@ void breakpoint_callback(Machine *machine) {
   getchar();
 }
 
-i32 main() {
+i32 main(int argc, char **argv) {
   lbvm_check_platform_compatibility();
 
-  Machine machine = machine_new(MACHINE_NOT_SILENT, breakpoint_callback, NULL);
+  bool dbg = false;
+  if (argc >= 2) {
+    if (strcmp(argv[1], "--dbg") == 0) {
+      dbg = true;
+    }
+  }
+
+  Machine machine = machine_new(!dbg, breakpoint_callback, NULL);
   machine_load_program(&machine, text_segment, sizeof(text_segment), data_segment, sizeof(data_segment));
   while (machine_next(&machine))
     ;
-  // breakpoint_callback(&machine);
+  if (dbg)
+    breakpoint_callback(&machine);
 }

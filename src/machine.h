@@ -3,6 +3,7 @@
 #include "common.h"
 #include "debug_utils.h"
 #include "values.h"
+#include <stdio.h>
 #include <stdlib.h>
 
 static inline void lbvm_check_platform_compatibility() {
@@ -221,7 +222,7 @@ static inline bool machine_libc_call(Machine *machine, u8 callcode) {
   case LIBC_exit: {
     u8 arg0 = (*(u8 *)&(machine->reg_0));
     if (!machine->config_silent)
-      printf("Machine called libc function `exit` with code %u", arg0);
+      printf("Machine called libc function `exit` with code %u\n", arg0);
     else
       exit(arg0);
     return false;
