@@ -40,9 +40,9 @@ def check_requirements(arg0: str) -> None:
         exit(1)
 
     def require_cmd(cmd: str, notes: str = None) -> None:
-        notes_ = "" if notes == None else notes
+        notes_ = "" if notes == None else " " + notes
         if not cmd_exists(cmd):
-            print("requires `{}`".format(cmd, notes_))
+            print("requires `{}`{}".format(cmd, notes_))
             exit(1)
 
     require_cmd("git")
