@@ -26,7 +26,7 @@ def main() -> None:
     subprocess.run(["cabal", "build"], cwd="lbvm_asm")
 
     inputPath_ = ("../" + inputPath)
-    print("--- Running `cabal build run exes -- {}` @ ./lbvm_asm".format(inputPath))
+    print("--- Running `cabal run exes -- {}` @ ./lbvm_asm".format(inputPath))
     result = subprocess.run(["cabal", "run", "exes", "--", ("../" + inputPath)], cwd="lbvm_asm", stdout=subprocess.PIPE).stdout.decode()
     print("{}".format(result), end="")
 
