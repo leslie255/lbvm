@@ -11,7 +11,16 @@ Assembler is available at: [leslie255/lbvm_asm](https://github.com/leslie255/lbv
 
 ## Usage
 
-There is a `run.py` file for quickly running an assembly file. For more detail, see:
+```bash
+# Clone the repo
+$ git clone https://github.com/leslie255/lbvm.git
+
+# Cd to the repo
+$ cd lbvm
+
+# Use run.py for quickly running an assembly file
+$ python3 run.py test.s
+```
 
 ## LICENSE
 

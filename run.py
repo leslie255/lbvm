@@ -6,8 +6,10 @@ args = iter(sys.argv)
 
 arg0 = next(args)
 
+
 def printHelp() -> None:
-	print("usage: {} [--dbg] [INPUT.asm]".format(arg0))
+    print("usage: {} [--dbg] [INPUT.asm]".format(arg0))
+
 
 def clone_submodules() -> None:
     if not os.path.isdir("lbvm_asm"):
@@ -16,10 +18,37 @@ def clone_submodules() -> None:
         print("--- Running `git submodule update --remote`")
         subprocess.run(["git", "submodule", "update", "--remote"])
 
+
 def make_bin_dir() -> None:
     if not os.path.isdir("bin"):
         print("--- Making `bin` directory")
-        os.mkdir("bin");
+        os.mkdir("bin")
+
+
+def cmd_exists(cmd: str) -> bool:
+    try:
+        result = subprocess.run(["which", cmd], stdout=subprocess.PIPE)
+        return result.returncode == 0
+    except:
+        return False
+
+
+def check_requirements() -> None:
+    if os.name != "posix":
+        print("run.py requires UNIX-like systems")
+        exit(1)
+
+    def require_cmd(cmd: str, notes: str = None) -> None:
+        notes_ = "" if notes == None else notes
+        if not cmd_exists(cmd):
+            print("requires `{}`".format(cmd, notes_))
+            exit(1)
+
+    require_cmd("git")
+    require_cmd("make")
+    require_cmd("clang")
+    require_cmd("cabal", notes="(install GHCup and cabal at https://www.haskell.org/ghcup/)")
+
 
 def main() -> None:
     inputPath: str = None
@@ -31,7 +60,7 @@ def main() -> None:
         elif arg == "--dbg":
             dbg = True
         else:
-            if inputPath!= None:
+            if inputPath != None:
                 print("multiple input paths are not supported")
                 printHelp()
                 exit(1)
@@ -48,15 +77,19 @@ def main() -> None:
     print("--- Running `cabal build` @ ./lbvm_asm")
     subprocess.run(["cabal", "build"], cwd="lbvm_asm")
 
-    inputPath_ = ("../" + inputPath)
-    print("--- Running `cabal run exes -- {}` @ ./lbvm_asm".format(inputPath))
-    result = subprocess.run(["cabal", "run", "exes", "--", ("../" + inputPath)], cwd="lbvm_asm", stdout=subprocess.PIPE).stdout.decode()
+    inputPath_ = "../" + inputPath
+    print("--- Running `cabal run exes -- {}` @ ./lbvm_asm".format(inputPath_))
+    result = subprocess.run(
+        ["cabal", "run", "exes", "--", inputPath_],
+        cwd="lbvm_asm",
+        stdout=subprocess.PIPE,
+    ).stdout.decode()
 
     print("--- Writing to code.h")
     codeHFile = open("code.h", "w+")
     codeHFile.write(result)
     codeHFile.close()
-    if dbg: # too noisy, keep it behind debug flag
+    if dbg:  # too noisy, keep it behind debug flag
         subprocess.run(["bat", "-l", "c", "code.h"])
 
     print("--- Running `make all`")
@@ -67,6 +100,7 @@ def main() -> None:
         subprocess.run(["bin/lbvm", "--dbg"])
     else:
         subprocess.run(["bin/lbvm"])
+
 
 if __name__ == "__main__":
     main()
