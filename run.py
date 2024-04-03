@@ -3,7 +3,7 @@ import os
 import subprocess
 
 
-def printHelp() -> None:
+def printHelp(arg0: str) -> None:
     print("usage: {} [--dbg] [INPUT.asm]".format(arg0))
 
 
@@ -62,20 +62,20 @@ def main() -> None:
     dbg = False
     for arg in args:
         if arg == "--help":
-            printHelp()
+            printHelp(arg0)
             exit(0)
         elif arg == "--dbg":
             dbg = True
         else:
             if inputPath != None:
                 print("multiple input paths are not supported")
-                printHelp()
+                printHelp(arg0)
                 exit(1)
             inputPath = arg
 
     if inputPath == None:
         print("expects one argument for input file")
-        printHelp()
+        printHelp(arg0)
         exit(1)
 
     clone_submodules()
