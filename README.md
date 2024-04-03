@@ -9,6 +9,16 @@ Currently everything except `native_call` instruction works (so you can't call a
 
 Assembler is available at: [leslie255/lbvm_asm](https://github.com/leslie255/lbvm_asm).
 
+## Usage
+
+There is a `run.py` file for quickly running an assembly file. For more detail, see:
+
+```bash
+python3 run.py --help
+```
+
+Note that this requires cloning the git submodule of `lbvm_asm`.
+
 ## LICENSE
 
 This project is licensed under GPLv3.
