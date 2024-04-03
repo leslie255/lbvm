@@ -111,10 +111,12 @@ def main() -> None:
     subprocess.run(["make", "all"], check=True)
 
     print("--- Running `bin/lbvm`")
-    if dbg:
-        subprocess.run(["bin/lbvm", "--dbg"], check=True)
-    else:
-        subprocess.run(["bin/lbvm"], check=True)
+    result = (
+        subprocess.run(["bin/lbvm", "--dbg"])
+        if dbg
+        else subprocess.run(["bin/lbvm"])
+    )
+    exit(result.returncode)
 
 
 if __name__ == "__main__":
