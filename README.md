@@ -13,12 +13,6 @@ Assembler is available at: [leslie255/lbvm_asm](https://github.com/leslie255/lbv
 
 There is a `run.py` file for quickly running an assembly file. For more detail, see:
 
-```bash
-python3 run.py --help
-```
-
-Note that this requires cloning the git submodule of `lbvm_asm`.
-
 ## LICENSE
 
 This project is licensed under GPLv3.

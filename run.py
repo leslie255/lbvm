@@ -1,4 +1,5 @@
 import sys
+import os
 import subprocess
 
 args = iter(sys.argv)
@@ -7,6 +8,18 @@ arg0 = next(args)
 
 def printHelp() -> None:
 	print("usage: {} [--dbg] [INPUT.asm]".format(arg0))
+
+def clone_submodules() -> None:
+    if not os.path.isdir("lbvm_asm"):
+        print("--- Running `git submodule init`")
+        subprocess.run(["git", "submodule", "init"])
+        print("--- Running `git submodule update --remote`")
+        subprocess.run(["git", "submodule", "update", "--remote"])
+
+def make_bin_dir() -> None:
+    if not os.path.isdir("bin"):
+        print("--- Making `bin` directory")
+        os.mkdir("bin");
 
 def main() -> None:
     inputPath: str = None
@@ -23,6 +36,14 @@ def main() -> None:
                 printHelp()
                 exit(1)
             inputPath = arg
+
+    if inputPath == None:
+        print("expects one argument for input file")
+        printHelp()
+        exit(1)
+
+    clone_submodules()
+    make_bin_dir()
 
     print("--- Running `cabal build` @ ./lbvm_asm")
     subprocess.run(["cabal", "build"], cwd="lbvm_asm")
