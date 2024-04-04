@@ -170,7 +170,7 @@ static inline void *solve_addr(Machine *machine, u8 vmem_flag, u64 addr) {
     } break;
     default:
       if (!machine->config_silent)
-        fprintf(stderr, "Out of bound stack access @ 0x1%04X\n", machine->pc - 4);
+        fprintf(stderr, "Out of bound vmem access @ 0x1%04X (address: 0x%016llX)\n", machine->pc - 4, addr);
       return NULL;
     }
   }

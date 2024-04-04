@@ -187,7 +187,7 @@ For this reason `store_dir` and `load_dir` are small instructions while the othe
 | `pop`         | 43     | Yes              | NZ              | Small          | `[dest][-][-][-][-]`              |
 | `libc_call`   | 44     | No               | -               | Small          | `[-][-][-][-][libc_callcode]`     |
 | `native_call` | 45     | No               | -               | Big            | TODO                              |
-| `vtoreal`     | 46     | No               | -               | Big            | `[dest][src]`                     |
+| `vtoreal`     | 46     | No               | -               | Big            | `[dest][src][-][-][-]`            |
 | `breakpoint`  | 63     | No               | -               | Small          | `[-][-][-][-][-]`                 |
 
 Note that because all registers are callee-saved, value of status register might change after `call`, `ccall`, `libc_call`, `native_call`, even though the instruction itself does not touch the status register.
@@ -221,4 +221,3 @@ LBVM uses a 8-bit callcode for calling libc functions. It does not cover all the
 | `strcpy`   | 20       |
 | `strcat`   | 21       |
 | `strcmp`   | 22       |
-| `strcmp`   | 23       |

@@ -93,18 +93,17 @@ def main() -> None:
 
     inputPath_ = "../" + inputPath
     print("--- Running `cabal run exes -- {}` @ ./lbvm_asm".format(inputPath_))
-    result = subprocess.run(
-        ["cabal", "run", "exes", "--", inputPath_],
-        cwd="lbvm_asm",
-        stdout=subprocess.PIPE,
-        check=True,
-    ).stdout.decode()
+    result = subprocess.run(["cabal", "run", "exes", "--", inputPath_], cwd="lbvm_asm", stdout=subprocess.PIPE)
+    if result.returncode != 0:
+        print(result.stdout.decode())
+        print("`cabal run` returned with non-zero exit code")
+        exit(result.returncode)
 
     print("--- Writing to code.h")
     codeHFile = open("code.h", "w+")
-    codeHFile.write(result)
+    codeHFile.write(result.stdout.decode())
     codeHFile.close()
-    if dbg:  # too noisy, keep it behind debug flag
+    if dbg:
         subprocess.run(["bat", "-l", "c", "code.h"], check=True)
 
     print("--- Running `make all`")

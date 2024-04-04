@@ -1,106 +1,64 @@
 segment data
-	STR_VOWEL:
-	bytes "Vowel\0"
-
-	STR_NOT_VOWEL:
-	bytes "Not vowel\0"
-
-	STR_EMAIL:
-	bytes "zili.luo@student.manchester.ac.uk\0"
-
-	STR_ERROR:
-	bytes "Error\0"
-
-	STR_PROMPT:
-	bytes "Enter an integer: \0"
-
-	STR_FMT:
-	bytes "%d\0"
+	FSCANF_FMT:
+	bytes "%lf\0"
+	
+	FILENAME:
+	bytes "number.txt\0"
+	
+	OPENMODE:
+	bytes "r\0"
+	
+	ERROR_MSG:
+	bytes "Error. Not able to open the file.\0"
+	
+	PRINTF_FMT:
+	bytes "{\"name\":\"Zili Luo\",\"email\":\"zili.luo@student.manchester.ac.uk\",\"number1\":%.2lf,\"number2\":%.3le}\0"
 
 segment text
-	; r0: c
-	; r1: cond
-	; r2: tmp cond
-	; r3: tmp for compare
-	; r4: tmp for masking status
-	; r9: STR_NOT_VOWEL
-	; r10: STR_VOWEL
-	; r11: sizeof(STR_EMAIL)
-	; r13: STR_EMAIL
-
-	load_imm	q r0, 8
+	; stack layout:
+	; 0:	f64	num
+	; 8:	FILE*	fptr
+	load_imm	q r0, 16
 	add		q sp, sp, r0
-
-	load_imm	q r0, STR_PROMPT
+	
+	; fptr = fopen("number.txt", "r")
+	load_imm	q r0, FILENAME	; r0 = fopen("number.txt", "r")
 	vtoreal		r0, r0
+	load_imm	q r1, OPENMODE
+	vtoreal		r1, r1
+	libc_call	fopen
+	load_imm	q r1, 8		; fptr = r0
+	store_dir	q r0, r1, vmem
+	
+	; if r0 == NULL
+	cmp		q r0, r0
+	b		_error_end, nz
+	load_imm	q r0, ERROR_MSG	; printf(ERROR_MSG)
+	vtoreal		r0, r0
+	libc_call	printf
+	load_imm	q r0, 1		; exit(1)
+	libc_call	exit
+	_error_end:
+	
+	; fscanf(fptr, "%lf", &num);
+	; r0 is already fptr
+	load_imm	q r1, FSCANF_FMT
+	vtoreal		r1, r1
+	load_imm	q r2, 0	; &num
+	vtoreal		r2, r2
+	libc_call	fscanf
+	
+	; fclose(fptr)
+	load_imm	q r0, 8
+	load_dir	q r0, r0, vmem
+	libc_call	fclose
+	
+	; printf(PRINTF_FMT, num, num)
+	load_imm	q r0, PRINTF_FMT
+	vtoreal		r0, r0
+	load_imm	q r2, 0
+	load_dir	q r1, r2, vmem
+	load_dir	q r2, r2, vmem
 	libc_call	printf
 	
-	load_imm	q r0, 0
-	vtoreal		r1, r0
-	load_imm	q r0, STR_FMT
-	vtoreal		r0, r0
-	libc_call	scanf
-
-	load_imm	q r11, 33	; 33 == sizeof(STR_EMAIL)
-	load_imm	q r13, STR_EMAIL
-
-	; c = email[i]
-	load_imm	q r12, 0
-	load_dir	q r12, r12, vmem
-	add		q r0, r13, r12
-	load_dir	b r0, r0, vmem
-
-	; check bound
-	cmp		q r11, r12
-	b		_out_of_bound_end, g
-	load_imm	q r0, STR_ERROR
-	vtoreal		r0, r0
-	libc_call	printf
-	load_imm	q r0, 1
-	libc_call	exit
-	_out_of_bound_end:
-
-	load_imm	b r4, 0b00010000
-
-	; cond = (c == 'a')
-	load_imm	b r3, 'a'
-	cmp		b r0, r3
-	mov		b r1, status
-	and		b r1, r1, r4
-
-	; cond |= (c == 'e')
-	load_imm	b r3, 'e'
-	cmp		b r0, r3
-	mov		b r2, status
-	and		b r2, r2, r4
-	or		b r1, r1, r2
-
-	; cond |= (c == 'i')
-	load_imm	b r3, 'i'
-	cmp		b r0, r3
-	mov		b r2, status
-	and		b r2, r2, r4
-	or		b r1, r1, r2
-
-	; cond |= (c == 'o')
-	load_imm	b r3, 'o'
-	cmp		b r0, r3
-	mov		b r2, status
-	and		b r2, r2, r4
-	or		b r1, r1, r2
-
-	; cond |= (c == 'u')
-	load_imm	b r3, 'u'
-	cmp		b r0, r3
-	mov		b r2, status
-	and		b r2, r2, r4
-	or		b r1, r1, r2
-
-	load_imm	q r9, STR_NOT_VOWEL
-	load_imm	q r10, STR_VOWEL
-	cmp		b r1, r1
-	csel		q r0, r9, r10, z
-	vtoreal		r0, r0
-	libc_call	printf
-
 	brk
