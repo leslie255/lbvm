@@ -145,7 +145,7 @@ For this reason `store_dir` and `load_dir` are small instructions while the othe
 | `cbrk`        | 1      | No               | -               | Small          | `[-][-][-][-][cond]`              |
 | `nop`         | 2      | No               | -               | Small          | `[-][-][-][-][-]`                 |
 | `load_imm`    | 3      | Yes              | NZ              | Big            | `[dest][-][-][vmem][data]`        |
-| `load_dir`    | 4      | Yes              | NZ              | Small          | `[dest][addr][vmem][-]`           |
+| `load_dir`    | 4      | Yes              | NZ              | Small          | `[dest][addr][-][-][vmem]`        |
 | `load_ind`    | 5      | Yes              | NZ              | Big            | `[dest][addr][-][vmem][offset]`   |
 | `store_imm`   | 6      | Yes              | NZ              | Big            | `[-][src][-][-][vmem][addr]`      |
 | `store_dir`   | 7      | Yes              | NZ              | Small          | `[addr][src][-][-][vmem]`         |
@@ -187,7 +187,7 @@ For this reason `store_dir` and `load_dir` are small instructions while the othe
 | `pop`         | 43     | Yes              | NZ              | Small          | `[dest][-][-][-][-]`              |
 | `libc_call`   | 44     | No               | -               | Small          | `[-][-][-][-][libc_callcode]`     |
 | `native_call` | 45     | No               | -               | Big            | TODO                              |
-| `vtoreal`     | 46     | No               | -               | Big            | `[dest][src][-][-][-]`            |
+| `vtoreal`     | 46     | No               | -               | Small          | `[dest][src][-][-][-]`            |
 | `breakpoint`  | 63     | No               | -               | Small          | `[-][-][-][-][-]`                 |
 
 Note that because all registers are callee-saved, value of status register might change after `call`, `ccall`, `libc_call`, `native_call`, even though the instruction itself does not touch the status register.
