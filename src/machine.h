@@ -3,17 +3,17 @@
 #include "common.h"
 #include "debug_utils.h"
 #include "values.h"
-#include <stdio.h>
-#include <stdlib.h>
+
+#include <math.h>
 
 static inline void lbvm_check_platform_compatibility() {
   if (sizeof(void *) != 8) {
-    PANIC_PRINT("This LBVM emulator requires 64-bit host platform\n");
+    panic_printf("This LBVM emulator requires 64-bit host platform\n");
   }
   u16 x = 1;
   u8 *ptr = (u8 *)&x;
   if (*ptr != 1) {
-    PANIC_PRINT("This LBVM emulator requires little endian host platform\n");
+    panic_printf("This LBVM emulator requires little endian host platform\n");
   }
 }
 
@@ -61,7 +61,7 @@ struct machine {
 #define MACHINE_SILENT 1
 #define MACHINE_NOT_SILENT 0
 
-Machine machine_new(bool config_silent, breakpoint_callback_t breakpoint_callback, void *breakpoint_callback_cx) {
+static inline Machine machine_new(bool config_silent, breakpoint_callback_t breakpoint_callback, void *breakpoint_callback_cx) {
   Machine machine = {0};
   machine.vmem_text = malloc(VMEM_SEG_SIZE);
   machine.vmem_data = malloc(VMEM_SEG_SIZE);
@@ -72,7 +72,7 @@ Machine machine_new(bool config_silent, breakpoint_callback_t breakpoint_callbac
   return machine;
 }
 
-void machine_load_program(Machine *machine, const u8 *text_segment, usize text_segment_size, const u8 *data_segment,
+static inline void machine_load_program(Machine *machine, const u8 *text_segment, usize text_segment_size, const u8 *data_segment,
                           usize data_segment_size) {
   memcpy(machine->vmem_text, text_segment, text_segment_size);
   memcpy(machine->vmem_data, data_segment, data_segment_size);
@@ -113,7 +113,7 @@ static inline u64 *machine_reg(Machine *machine, u8 reg_code) {
   case REG_SP:
     return &machine->reg_sp;
   default:
-    PANIC_PRINT("Called `%s` with invalid reg code %u\n", __FUNCTION__, reg_code);
+    panic_printf("Called `%s` with invalid reg code %u\n", __FUNCTION__, reg_code);
   }
 }
 
@@ -150,7 +150,7 @@ static inline size_t oplen_to_size(const u8 oplen) {
   case OPLEN_1:
     return 1;
   default:
-    PANIC();
+    panic();
   }
 }
 
@@ -187,7 +187,7 @@ static inline u64 mask_val(u64 value, u8 oplen) {
   case OPLEN_1:
     return value & 0x00000000000000FF;
   default:
-    PANIC_PRINT("Called `%s` with illegal oplen %u\n", __FUNCTION__, oplen);
+    panic_printf("Called `%s` with illegal oplen %u\n", __FUNCTION__, oplen);
   }
 }
 
@@ -206,7 +206,7 @@ static inline u64 mask_val_and_set_flag_n(Machine *machine, u64 value, u8 oplen)
     machine->reg_status.flag_n = (i8)value < 0;
     return value & 0x00000000000000FF;
   default:
-    PANIC_PRINT("Called `%s` with illegal oplen %u\n", __FUNCTION__, oplen);
+    panic_printf("Called `%s` with illegal oplen %u\n", __FUNCTION__, oplen);
   }
 }
 
@@ -453,7 +453,7 @@ static inline bool machine_next(Machine *machine) {
     machine->reg_status.numeric = 0;
     u64 *dest_reg = machine_reg(machine, GET_OPERAND0(inst));
     void *src = solve_addr(machine, GET_FLAGS(inst) & 0b00000001, addr);
-    TRY_NULL(src);
+    TRY(src);
     *dest_reg = 0;
     memcpy(dest_reg, src, oplen_to_size(oplen)); // use memcpy because address may be unaligned
     mask_val_and_set_flag_n(machine, *dest_reg, oplen);
@@ -466,7 +466,7 @@ static inline bool machine_next(Machine *machine) {
     u64 src_addr_offset = machine_fetch_data_qword(machine);
     u64 src_addr = src_addr_base + src_addr_offset;
     void *src = solve_addr(machine, GET_FLAGS(inst) & 0b00000001, src_addr);
-    TRY_NULL(src);
+    TRY(src);
     u64 *dest_reg = machine_reg(machine, GET_OPERAND0(inst));
     *dest_reg = 0;
     memcpy(dest_reg, src, oplen_to_size(oplen)); // use memcpy because address may be unaligned
@@ -478,7 +478,7 @@ static inline bool machine_next(Machine *machine) {
     MACHINE_CHECK_PC_OVERFLOW(machine, 8);
     u64 dest_addr = machine_fetch_data_qword(machine);
     void *dest = solve_addr(machine, GET_FLAGS(inst) & 0b00000001, dest_addr);
-    TRY_NULL(dest);
+    TRY(dest);
     u64 src = mask_val_and_set_flag_n(machine, *machine_reg(machine, GET_OPERAND0(inst)), oplen);
     memcpy(dest, &src, oplen_to_size(oplen));
     mask_val_and_set_flag_n(machine, src, oplen);
@@ -489,7 +489,7 @@ static inline bool machine_next(Machine *machine) {
     machine->reg_status.numeric = 0;
     u64 dest_addr = *machine_reg(machine, GET_OPERAND1(inst));
     void *dest = solve_addr(machine, GET_FLAGS(inst) & 0b00000001, dest_addr);
-    TRY_NULL(dest);
+    TRY(dest);
     u64 src = mask_val_and_set_flag_n(machine, src_, oplen);
     memcpy(dest, &src, oplen_to_size(oplen));
     mask_val_and_set_flag_n(machine, src, oplen);
@@ -503,7 +503,7 @@ static inline bool machine_next(Machine *machine) {
     u64 dest_addr_offset = machine_fetch_data_qword(machine);
     u64 dest_addr = dest_addr_base + dest_addr_offset;
     void *dest = solve_addr(machine, GET_FLAGS(inst) & 0b00000001, dest_addr);
-    TRY_NULL(dest);
+    TRY(dest);
     u64 src = mask_val_and_set_flag_n(machine, src_, oplen);
     memcpy(dest, &src, oplen_to_size(oplen));
     mask_val_and_set_flag_n(machine, src, oplen);
@@ -529,8 +529,8 @@ static inline bool machine_next(Machine *machine) {
     u64 lhs_ = mask_val(*machine_reg(machine, GET_OPERAND0(inst)), oplen);
     u64 rhs_ = mask_val(*machine_reg(machine, GET_OPERAND1(inst)), oplen);
     machine->reg_status.numeric = 0;
-    f64 lhs = TRANSMUTE(f64, lhs_);
-    f64 rhs = TRANSMUTE(f64, rhs_);
+    f64 lhs = transmute(f64, lhs_);
+    f64 rhs = transmute(f64, rhs_);
     machine->reg_status.flag_z = lhs == 0;
     machine->reg_status.flag_e = lhs == rhs;
     machine->reg_status.flag_g = lhs > rhs;
@@ -554,11 +554,11 @@ static inline bool machine_next(Machine *machine) {
     if (rev)
       cond = !cond;
     if (cond) {
-      TRY_NULL(machine_jump_offset(machine, GET_JUMP_OFFSET(inst)));
+      TRY(machine_jump_offset(machine, GET_JUMP_OFFSET(inst)));
     }
   } break;
   case OPCODE_J: {
-    TRY_NULL(machine_jump_offset(machine, GET_JUMP_OFFSET(inst)));
+    TRY(machine_jump_offset(machine, GET_JUMP_OFFSET(inst)));
   } break;
   case OPCODE_ADD: {
     u64 *dest = machine_reg(machine, GET_OPERAND0(inst));
@@ -591,7 +591,7 @@ static inline bool machine_next(Machine *machine) {
       ADD_WITH_TY(u8, i8);
     } break;
     default:
-      PANIC();
+      panic();
     }
     *dest = result;
   } break;
@@ -626,7 +626,7 @@ static inline bool machine_next(Machine *machine) {
       SUB_WITH_TY(u8, i8);
     } break;
     default:
-      PANIC();
+      panic();
     }
     *dest = result;
   } break;
@@ -660,7 +660,7 @@ static inline bool machine_next(Machine *machine) {
       MUL_WITH_TY(u8, i8);
     } break;
     default:
-      PANIC();
+      panic();
     }
     *dest = result;
   } break;
@@ -698,7 +698,7 @@ static inline bool machine_next(Machine *machine) {
       DIV_WITH_TY(u8, i8);
     } break;
     default:
-      PANIC();
+      panic();
     }
     *dest = result;
   } break;
@@ -736,7 +736,7 @@ static inline bool machine_next(Machine *machine) {
       MOD_WITH_TY(u8, i8);
     } break;
     default:
-      PANIC();
+      panic();
     }
     *dest = result;
   } break;
@@ -771,7 +771,7 @@ static inline bool machine_next(Machine *machine) {
       IADD_WITH_TY(i8);
     } break;
     default:
-      PANIC();
+      panic();
     }
     *dest = result;
   } break;
@@ -806,7 +806,7 @@ static inline bool machine_next(Machine *machine) {
       ISUB_WITH_TY(i8);
     } break;
     default:
-      PANIC();
+      panic();
     }
     *dest = result;
   } break;
@@ -840,7 +840,7 @@ static inline bool machine_next(Machine *machine) {
       IMUL_WITH_TY(i8);
     } break;
     default:
-      PANIC();
+      panic();
     }
     *dest = result;
   } break;
@@ -878,7 +878,7 @@ static inline bool machine_next(Machine *machine) {
       IDIV_WITH_TY(i8);
     } break;
     default:
-      PANIC();
+      panic();
     }
     *dest = result;
   } break;
@@ -915,7 +915,7 @@ static inline bool machine_next(Machine *machine) {
       IMOD_WITH_TY(i8);
     } break;
     default:
-      PANIC();
+      panic();
     }
     *dest = result;
   } break;
@@ -926,13 +926,13 @@ static inline bool machine_next(Machine *machine) {
     u64 result;
 #define FADD_WITH_TY(TY)                                                                                               \
   {                                                                                                                    \
-    TY LHS_ = TRANSMUTE(TY, lhs);                                                                                      \
-    TY RHS_ = TRANSMUTE(TY, rhs);                                                                                      \
+    TY LHS_ = transmute(TY, lhs);                                                                                      \
+    TY RHS_ = transmute(TY, rhs);                                                                                      \
     TY RESULT_ = LHS_ + RHS_;                                                                                          \
     machine->reg_status.numeric = 0;                                                                                   \
     machine->reg_status.flag_z = RESULT_ == 0;                                                                         \
     machine->reg_status.flag_n = RESULT_ < 0;                                                                          \
-    result = TRANSMUTE(u64, RESULT_);                                                                                  \
+    result = transmute(u64, RESULT_);                                                                                  \
   };
     switch (oplen) {
     case OPLEN_8: {
@@ -949,7 +949,7 @@ static inline bool machine_next(Machine *machine) {
       return false;
     } break;
     default:
-      PANIC();
+      panic();
     }
     *dest = result;
   } break;
@@ -960,13 +960,13 @@ static inline bool machine_next(Machine *machine) {
     u64 result;
 #define FSUB_WITH_TY(TY)                                                                                               \
   {                                                                                                                    \
-    TY LHS_ = TRANSMUTE(TY, lhs);                                                                                      \
-    TY RHS_ = TRANSMUTE(TY, rhs);                                                                                      \
+    TY LHS_ = transmute(TY, lhs);                                                                                      \
+    TY RHS_ = transmute(TY, rhs);                                                                                      \
     TY RESULT_ = LHS_ - RHS_;                                                                                          \
     machine->reg_status.numeric = 0;                                                                                   \
     machine->reg_status.flag_z = RESULT_ == 0;                                                                         \
     machine->reg_status.flag_n = RESULT_ < 0;                                                                          \
-    result = TRANSMUTE(u64, RESULT_);                                                                                  \
+    result = transmute(u64, RESULT_);                                                                                  \
   };
     switch (oplen) {
     case OPLEN_8: {
@@ -983,7 +983,7 @@ static inline bool machine_next(Machine *machine) {
       return false;
     } break;
     default:
-      PANIC();
+      panic();
     }
     *dest = result;
   } break;
@@ -994,13 +994,13 @@ static inline bool machine_next(Machine *machine) {
     u64 result;
 #define FMUL_WITH_TY(TY)                                                                                               \
   {                                                                                                                    \
-    TY LHS_ = TRANSMUTE(TY, lhs);                                                                                      \
-    TY RHS_ = TRANSMUTE(TY, rhs);                                                                                      \
+    TY LHS_ = transmute(TY, lhs);                                                                                      \
+    TY RHS_ = transmute(TY, rhs);                                                                                      \
     TY RESULT_ = LHS_ * RHS_;                                                                                          \
     machine->reg_status.numeric = 0;                                                                                   \
     machine->reg_status.flag_z = RESULT_ == 0;                                                                         \
     machine->reg_status.flag_n = RESULT_ < 0;                                                                          \
-    result = TRANSMUTE(u64, RESULT_);                                                                                  \
+    result = transmute(u64, RESULT_);                                                                                  \
   };
     switch (oplen) {
     case OPLEN_8: {
@@ -1017,7 +1017,7 @@ static inline bool machine_next(Machine *machine) {
       return false;
     } break;
     default:
-      PANIC();
+      panic();
     }
     *dest = result;
   } break;
@@ -1028,13 +1028,13 @@ static inline bool machine_next(Machine *machine) {
     u64 result;
 #define FDIV_WITH_TY(TY)                                                                                               \
   {                                                                                                                    \
-    TY LHS_ = TRANSMUTE(TY, lhs);                                                                                      \
-    TY RHS_ = TRANSMUTE(TY, rhs);                                                                                      \
+    TY LHS_ = transmute(TY, lhs);                                                                                      \
+    TY RHS_ = transmute(TY, rhs);                                                                                      \
     TY RESULT_ = LHS_ / RHS_;                                                                                          \
     machine->reg_status.numeric = 0;                                                                                   \
     machine->reg_status.flag_z = RESULT_ == 0;                                                                         \
     machine->reg_status.flag_n = RESULT_ < 0;                                                                          \
-    result = TRANSMUTE(u64, RESULT_);                                                                                  \
+    result = transmute(u64, RESULT_);                                                                                  \
   };
     switch (oplen) {
     case OPLEN_8: {
@@ -1051,7 +1051,7 @@ static inline bool machine_next(Machine *machine) {
       return false;
     } break;
     default:
-      PANIC();
+      panic();
     }
     *dest = result;
   } break;
@@ -1062,22 +1062,22 @@ static inline bool machine_next(Machine *machine) {
     u64 result;
     switch (oplen) {
     case OPLEN_8: {
-      f64 lhs_ = TRANSMUTE(f64, (lhs));
-      f64 rhs_ = TRANSMUTE(f64, (rhs));
+      f64 lhs_ = transmute(f64, (lhs));
+      f64 rhs_ = transmute(f64, (rhs));
       f64 result_ = fmod(lhs_, rhs_);
       machine->reg_status.numeric = 0;
       machine->reg_status.flag_z = result_ == 0;
       machine->reg_status.flag_n = result_ < 0;
-      result = TRANSMUTE(u64, result_);
+      result = transmute(u64, result_);
     } break;
     case OPLEN_4: {
-      f32 lhs_ = TRANSMUTE(f32, (lhs));
-      f32 rhs_ = TRANSMUTE(f32, (rhs));
+      f32 lhs_ = transmute(f32, (lhs));
+      f32 rhs_ = transmute(f32, (rhs));
       f32 result_ = fmodf(lhs_, rhs_);
       machine->reg_status.numeric = 0;
       machine->reg_status.flag_z = result_ == 0;
       machine->reg_status.flag_n = result_ < 0;
-      result = TRANSMUTE(u64, result_);
+      result = transmute(u64, result_);
     } break;
     case OPLEN_2:
     case OPLEN_1: {
@@ -1087,7 +1087,7 @@ static inline bool machine_next(Machine *machine) {
       return false;
     } break;
     default:
-      PANIC();
+      panic();
     }
     *dest = result;
   } break;
@@ -1159,7 +1159,7 @@ static inline bool machine_next(Machine *machine) {
       result = (lhs << (rhs % 8)) & 0x00000000000000FF;
     } break;
     default:
-      PANIC_PRINT("Invalid oplen 0x%02X\n", oplen);
+      panic_printf("Invalid oplen 0x%02X\n", oplen);
     }
     *dest = result;
   } break;
@@ -1182,7 +1182,7 @@ static inline bool machine_next(Machine *machine) {
       result = (lhs >> (rhs % 8)) & 0x00000000000000FF;
     } break;
     default:
-      PANIC_PRINT("Invalid oplen 0x%02X\n", oplen);
+      panic_printf("Invalid oplen 0x%02X\n", oplen);
     }
     *dest = result;
   } break;
@@ -1259,7 +1259,7 @@ static inline bool machine_next(Machine *machine) {
       MULADD_WITH_TY(u8, i8);
     } break;
     default:
-      PANIC();
+      panic();
     }
     *dest = result;
 
@@ -1272,7 +1272,7 @@ static inline bool machine_next(Machine *machine) {
     }
     memcpy(&machine->vmem_stack[machine->reg_sp], &machine->pc, 2);
     machine->reg_sp += 2;
-    TRY_NULL(machine_jump_offset(machine, GET_JUMP_OFFSET(inst)));
+    TRY(machine_jump_offset(machine, GET_JUMP_OFFSET(inst)));
   } break;
   case OPCODE_CCALL: {
     u8 cond_flag = GET_FLAGS(inst);
@@ -1288,7 +1288,7 @@ static inline bool machine_next(Machine *machine) {
       }
       memcpy(&machine->vmem_stack[machine->reg_sp], &machine->pc, 2);
       machine->reg_sp += 2;
-      TRY_NULL(machine_jump_offset(machine, GET_JUMP_OFFSET(inst)));
+      TRY(machine_jump_offset(machine, GET_JUMP_OFFSET(inst)));
     }
   } break;
   case OPCODE_RET: {
@@ -1361,7 +1361,7 @@ static inline bool machine_next(Machine *machine) {
     return machine_libc_call(machine, GET_FLAGS(inst));
   } break;
   case OPCODE_NATIVE_CALL: {
-    TODO();
+    panic_printf("TODO");
   } break;
   case OPCODE_VTOREAL: {
     u64 src = *machine_reg(machine, GET_OPERAND0(inst));

@@ -1,12 +1,15 @@
 CC = clang
-CFLAGS = -Wno-unused-command-line-argument -Wall -Wconversion --std=gnu2x
+CFLAGS = -Wno-unused-command-line-argument -Wall -Wextra --std=gnu17
 
 OPT_LEVEL = -O2
 
-all: bin/main.o bin/lbvm
+all: bin/main.o bin/fileformat.o bin/lbvm
 
 clean:
 	rm -rf bin/*
+
+bin/fileformat.o: src/fileformat.c src/fileformat.h src/common.h src/values.h src/machine.h src/debug_utils.h code.h
+	$(CC) $(CFLAGS) $(OPT_LEVEL) -c src/fileformat.c -o bin/fileformat.o
 
 bin/main.o: src/main.c src/common.h src/values.h src/machine.h src/debug_utils.h code.h
 	$(CC) $(CFLAGS) $(OPT_LEVEL) -c src/main.c -o bin/main.o

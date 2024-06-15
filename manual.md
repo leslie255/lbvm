@@ -106,7 +106,7 @@ the status register would be immediately overwrote within the same instruction.
 
 LBVM has a virtual memory `vmem` of 192kB, with 3 segments of 64kB.
 
-The first segment (`vmem` address 0 ~ 0xFFFF) is used as the stack.
+The first segment (`vmem` address 0x00000 ~ 0x0FFFF) is used as the stack.
 The second segment (`vmem` address 0x10000 ~ 0x1FFFF) is used as the text segment.
 The third segment (`vmem` address 0x20000 ~ 0x2FFFF) is used as the data segment.
 
@@ -221,3 +221,27 @@ LBVM uses a 8-bit callcode for calling libc functions. It does not cover all the
 | `strcpy`   | 20       |
 | `strcat`   | 21       |
 | `strcmp`   | 22       |
+
+## Program File Format
+
+Implementation of LBVM may be able to load a bytecode program from a file under this program file format, which is essentially a snapshot of the machine's memory.
+
+The file bytestream must start with the byte sequence:
+
+```
+4C 42 56 4D 50 72 6F 67 72 61 6D
+```
+
+Which are `LBVMProgram` encoded in ASCII.
+
+The bytestream must then be in the form of consequtive blocks, the format of a block is as such:
+
+```
++-------------------+====================+=============+==========+
+| Magic number 0xAA | Start address: u32 | Length: u16 | Data ... |
++-------------------+====================+=============+==========+
+```
+
+Note that `Start address` and `Length` are in little endian.
+
+Note that a block is not allowed to span through different memory segments.
