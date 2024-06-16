@@ -133,6 +133,17 @@ i32 main(int argc, char **argv) {
   }
 
   Machine machine = machine_new(!dbg, breakpoint_callback, NULL);
+  // {
+  //   dbg();
+  //   FILE *f = fopen(path, "rb");
+  //   xassert(f != NULL);
+  //   u8 bytes[11] = {0};
+  //   fread(&bytes[0], 11, 1, f);
+  //   fwrite(&bytes[0], 11, 1, stdout);
+  //   putchar('\n');
+  //   fclose(f);
+  //   dbg();
+  // }
   FILE *file = fopen(path, "rb");
   if (file == NULL) {
     panic_printf("Path %s doesn't exist\n", path);

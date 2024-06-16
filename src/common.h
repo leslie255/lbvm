@@ -70,10 +70,6 @@ typedef u32 char32;
 #error "unsupported architecture"
 #endif
 
-/// Useful for some macros for simply getting a `void` value.
-attribute(always_inline) static inline void void_() {
-}
-
 // Panic and assert.
 
 #ifdef UNIX_OR_MODERN_APPLE
@@ -116,8 +112,8 @@ attribute(noreturn, noinline) static inline void default_panic_handler() {
 /// Assert with stacktrace on failure.
 #define xassert(COND)                                                                                                  \
   ({                                                                                                                   \
-    if (!(COND_)) {                                                                                                    \
-      PANIC_PRINTF("Assertion failed: (%s) == false\n", #COND);                                                        \
+    if (!(COND)) {                                                                                                    \
+      panic_printf("Assertion failed: (%s) == false\n", #COND);                                                        \
     }                                                                                                                  \
   })
 
@@ -165,5 +161,5 @@ attribute(always_inline) static inline void xfree_(void *p) {
 #define debug_assert(COND) (assert(COND))
 #else
 /// Assert only in debug mode.
-#define debug_assert(COND) (void_())
+#define debug_assert(COND) ({})
 #endif

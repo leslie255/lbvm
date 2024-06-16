@@ -3,9 +3,7 @@
 #include "common.h"
 
 #define DEF_PRINT_FUNC(TY, FMT)                                                                                        \
-  static inline void print_##TY(TY x) {                                                                                \
-    printf(FMT, x);                                                                                                    \
-  }
+  static inline void print_##TY(TY x) { printf(FMT, x); }
 
 DEF_PRINT_FUNC(u8, "%u");
 DEF_PRINT_FUNC(u16, "%u");
@@ -20,9 +18,7 @@ DEF_PRINT_FUNC(isize, "%zd");
 DEF_PRINT_FUNC(f64, "%lf");
 DEF_PRINT_FUNC(f32, "%f");
 DEF_PRINT_FUNC(char, "%c");
-static inline void print_bool(bool x) {
-  printf("%s", x ? "true" : "false");
-}
+static inline void print_bool(bool x) { printf("%s", x ? "true" : "false"); }
 static inline void print_str(const char *x) {
   printf("\"");
   for (usize i = 0; x[i] != '\0'; ++i) {
@@ -69,9 +65,7 @@ static inline void print_str(const char *x) {
 }
 
 #define DEF_PRINT_HEX_FUNC(TY, FMT)                                                                                    \
-  static inline void print_hex_##TY(TY x) {                                                                            \
-    printf("0x" FMT, x);                                                                                               \
-  }
+  static inline void print_hex_##TY(TY x) { printf("0x" FMT, x); }
 
 DEF_PRINT_HEX_FUNC(u8, "%02X");
 DEF_PRINT_HEX_FUNC(u16, "%04X");
@@ -110,7 +104,7 @@ DEF_PRINT_HEX_FUNC(isize, "%016zX");
   ({                                                                                                                   \
     print(X);                                                                                                          \
     printf("\n");                                                                                                      \
-    void_();                                                                                                           \
+    ({});                                                                                                              \
   })
 
 /* clang-format off */
@@ -133,7 +127,7 @@ DEF_PRINT_HEX_FUNC(isize, "%016zX");
 #define dbg()                                                                                                          \
   ({                                                                                                                   \
     printf("[%s@%s:%d]\n", __FUNCTION__, __FILE__, __LINE__);                                                          \
-    void_();                                                                                                           \
+    ({});                                                                                                              \
   })
 
 /// Print the a value for quick and dirty debugging, with the current source location (e.g. [func@source.c:255]).
@@ -159,7 +153,7 @@ DEF_PRINT_HEX_FUNC(isize, "%016zX");
 /// Print a value in hex format for quick and dirty debugging, with the current source location (e.g.
 /// [func@source.c:255]).
 /// Only works on integral types.
-#define dbg_print_hex(X)                                                                                               \
+#define dbg_println_hex(X)                                                                                             \
   ({                                                                                                                   \
     __auto_type X_ = (X);                                                                                              \
     printf("[%s@%s:%d] (%s) = ", __FUNCTION__, __FILE__, __LINE__, #X);                                                \
