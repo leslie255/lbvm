@@ -133,17 +133,6 @@ i32 main(int argc, char **argv) {
   }
 
   Machine machine = machine_new(!dbg, breakpoint_callback, NULL);
-  // {
-  //   dbg();
-  //   FILE *f = fopen(path, "rb");
-  //   xassert(f != NULL);
-  //   u8 bytes[11] = {0};
-  //   fread(&bytes[0], 11, 1, f);
-  //   fwrite(&bytes[0], 11, 1, stdout);
-  //   putchar('\n');
-  //   fclose(f);
-  //   dbg();
-  // }
   FILE *file = fopen(path, "rb");
   if (file == NULL) {
     panic_printf("Path %s doesn't exist\n", path);
@@ -156,7 +145,12 @@ i32 main(int argc, char **argv) {
     printf("\n");
     panic();
   }
-  // machine_load_program(&machine, text_segment, sizeof(text_segment), data_segment, sizeof(data_segment));
+
+  for (usize i = 0; i < 1000; ++i) {
+      printf("%02X ", machine.vmem_text[i]);
+  }
+  printf("\n");
+
   while (machine_next(&machine))
     ;
 

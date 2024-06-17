@@ -39,19 +39,18 @@ ProgramLoadResult load_machine_state_from_file(Machine *restrict machine, FILE *
       .f = f,
       .finished = false,
   };
-  ProgramLoadResult result = check_header(&state);
-  if (result != ProgramLoadOk)
-    return result;
+  ProgramLoadResult check_header_result = check_header(&state);
+  if (check_header_result != ProgramLoadOk)
+    return check_header_result;
   while (!state.finished) {
-    ProgramLoadResult result = read_block(&state);
-    if (result != ProgramLoadOk)
-      return result;
+    ProgramLoadResult read_block_result = read_block(&state);
+    if (read_block_result != ProgramLoadOk)
+      return read_block_result;
   }
   return ProgramLoadOk;
 }
 
 static inline ProgramLoadResult check_header(ProgramLoadState *state) {
-  // Check header.
   static const u8 expected_header[11] = "LBVMProgram";
   u8 found_header[11] = {0};
   fread(&found_header, 1, 11, state->f);
@@ -90,26 +89,22 @@ static inline ProgramLoadResult read_block(ProgramLoadState *state) {
 }
 
 static inline ProgramLoadResult write_bytes(ProgramLoadState *state, const u8 *bytes, u32 start_address, u16 length) {
+  if ((start_address + length) / 0x10000 != start_address / 0x10000)
+    return ProgramLoadErrorOutOfBound;
+  u8 *restrict p;
   switch (start_address) {
-  case 0x00000 ... 0x0FFFF:
-    dbg();
-    if (start_address + length > 0x0FFFF)
-      return ProgramLoadErrorOutOfBound;
-    memcpy(&state->machine->vmem_stack[start_address], bytes, length);
-    return ProgramLoadOk;
-  case 0x10000 ... 0x1FFFF:
-    dbg();
-    if (start_address + length > 0x1FFFF)
-      return ProgramLoadErrorOutOfBound;
-    memcpy(&state->machine->vmem_text[start_address], bytes, length);
-    return ProgramLoadOk;
-  case 0x20000 ... 0x2FFFF:
-    dbg();
-    if (start_address + length > 0x2FFFF)
-      return ProgramLoadErrorOutOfBound;
-    memcpy(&state->machine->vmem_data[start_address], bytes, length);
-    return ProgramLoadOk;
+  case 0x00000 ... 0x0FFFF: {
+    p = &state->machine->vmem_stack[start_address - 0x00000];
+  } break;
+  case 0x10000 ... 0x1FFFF: {
+    p = &state->machine->vmem_text[start_address - 0x10000];
+  } break;
+  case 0x20000 ... 0x2FFFF: {
+    p = &state->machine->vmem_data[start_address - 0x20000];
+  } break;
   default:
     return ProgramLoadErrorOutOfBound;
   }
+  memcpy(p, bytes, length);
+  return ProgramLoadOk;
 }

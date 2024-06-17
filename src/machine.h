@@ -61,7 +61,8 @@ struct machine {
 #define MACHINE_SILENT 1
 #define MACHINE_NOT_SILENT 0
 
-static inline Machine machine_new(bool config_silent, breakpoint_callback_t breakpoint_callback, void *breakpoint_callback_cx) {
+static inline Machine machine_new(bool config_silent, breakpoint_callback_t breakpoint_callback,
+                                  void *breakpoint_callback_cx) {
   Machine machine = {0};
   machine.vmem_text = malloc(VMEM_SEG_SIZE);
   machine.vmem_data = malloc(VMEM_SEG_SIZE);
@@ -72,8 +73,8 @@ static inline Machine machine_new(bool config_silent, breakpoint_callback_t brea
   return machine;
 }
 
-static inline void machine_load_program(Machine *machine, const u8 *text_segment, usize text_segment_size, const u8 *data_segment,
-                          usize data_segment_size) {
+static inline void machine_load_program(Machine *machine, const u8 *text_segment, usize text_segment_size,
+                                        const u8 *data_segment, usize data_segment_size) {
   memcpy(machine->vmem_text, text_segment, text_segment_size);
   memcpy(machine->vmem_data, data_segment, data_segment_size);
 }
@@ -1369,6 +1370,7 @@ static inline bool machine_next(Machine *machine) {
     *dest = (u64)solve_addr(machine, 0, src);
   } break;
   case OPCODE_BREAKPOINT: {
+    dbg();
     if (machine->breakpoint_callback != NULL) {
       (machine->breakpoint_callback)(machine);
     }
