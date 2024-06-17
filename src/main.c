@@ -146,10 +146,8 @@ i32 main(int argc, char **argv) {
     panic();
   }
 
-  for (usize i = 0; i < 1000; ++i) {
-      printf("%02X ", machine.vmem_text[i]);
-  }
-  printf("\n");
+  if (dbg)
+    dbg_printf("Program loaded\n");
 
   while (machine_next(&machine))
     ;

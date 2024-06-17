@@ -1370,7 +1370,6 @@ static inline bool machine_next(Machine *machine) {
     *dest = (u64)solve_addr(machine, 0, src);
   } break;
   case OPCODE_BREAKPOINT: {
-    dbg();
     if (machine->breakpoint_callback != NULL) {
       (machine->breakpoint_callback)(machine);
     }

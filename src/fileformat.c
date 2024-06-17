@@ -61,7 +61,7 @@ static inline ProgramLoadResult check_header(ProgramLoadState *state) {
 
 static inline ProgramLoadResult read_block(ProgramLoadState *state) {
   u8 block_header[7] = {0};
-  usize len = dbg_println(fread(&block_header, 1, 7, state->f));
+  usize len = fread(&block_header, 1, 7, state->f);
   if (len == 0) {
     state->finished = true;
     return ProgramLoadOk;
@@ -71,9 +71,6 @@ static inline ProgramLoadResult read_block(ProgramLoadState *state) {
   u8 magic_number = block_header[0];
   u32 start_address = u32_from_le_bytes(&block_header[1]);
   u16 length = u16_from_le_bytes(&block_header[5]);
-  dbg_println_hex(magic_number);
-  dbg_println_hex(start_address);
-  dbg_println(length);
   if (magic_number != 0xAA)
     return ProgramLoadErrorInvalidBlockHeader;
   if (length == 0)
@@ -81,10 +78,6 @@ static inline ProgramLoadResult read_block(ProgramLoadState *state) {
   u8 *bytes = xalloc(u8, length);
   if (fread(bytes, 1, length, state->f) != length)
     return ProgramLoadErrorEofInBlock;
-  for (usize i = 0; i < length; ++i) {
-    printf("%02X ", bytes[i]);
-  }
-  printf("\n");
   return write_bytes(state, bytes, start_address, length);
 }
 
